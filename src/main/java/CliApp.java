@@ -65,6 +65,10 @@ public class CliApp {
             return;
         }
         double belopp;
+
+        /**
+         * Försöker parsa strängen till ett double värde meddelar om det inte lyckas
+         */
         try {
             belopp = Double.parseDouble(beloppStr.trim());
         } catch (NumberFormatException e) {
