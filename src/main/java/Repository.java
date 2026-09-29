@@ -1,5 +1,7 @@
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Predicate; //Behövs för filtrering på typ eller belopp
+
 
 /**
  * @param <T> typparameter (Generics).
@@ -26,4 +28,14 @@ public class Repository<T> {
         return new ArrayList<>(items);
     }
 
+    /**
+     * Filtrerar sparade objekt utifrån ett villkor.
+     * @param villkor villkoret som objekten ska uppfylla
+     * @return lista med objekt som uppfyller villkoret
+     */
+    public List<T> findWhere(Predicate<T> villkor) {
+        return items.stream()
+                .filter(villkor)
+                .toList();
+    }
 }
