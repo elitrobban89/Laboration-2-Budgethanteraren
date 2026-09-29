@@ -27,10 +27,12 @@ Applikationen startas från `CliApp` (t.ex. via Run i IntelliJ).
 ```
 src/
 ├── main/java/
-│   ├── CliApp.java          # Meny och användarinteraktion
-│   ├── Repository.java      # Generisk lagringsklass Repository<T>
-│   ├── Transaktion.java     # record: datum, kategori, belopp, typ
-│   └── TransaktionTyp.java  # enum: INKOMST, UTGIFT
+│   ├── CliApp.java                       # Meny och användarinteraktion
+│   ├── InvalidTransactionException.java  # Eget checked undantag för ogiltiga transaktioner
+│   ├── Repository.java                   # Generisk lagringsklass Repository<T>
+│   ├── Transaktion.java                  # record: datum, kategori, belopp, typ
+│   ├── TransaktionTyp.java               # enum: INKOMST, UTGIFT
+│   └── TransaktionValidator.java         # Validerar belopp och kategori
 └── test/java/
     └── RepositoryTest.java  # JUnit 5-tester för Repository<T>
 ```
@@ -43,6 +45,8 @@ src/
   - `add(T item)` – lägger till ett objekt.
   - `findAll()` – returnerar en *kopia* av listan så att repot inte kan ändras utifrån.
   - `findWhere(Predicate<T> villkor)` – filtrerar med Stream API och ett lambda-villkor.
+- **`InvalidTransactionException`** – eget *checked* undantag (`extends Exception`). Eftersom det är checked tvingar kompilatorn anroparen att hantera felet med `try/catch`.
+- **`TransaktionValidator`** – `validate(belopp, kategori)` kastar `InvalidTransactionException` om beloppet är 0 eller negativt, eller om kategorin är tom. Valideringen ligger i en egen klass (i stället för i menyn) så att den kan testas med JUnit utan tangentbordsinmatning.
 - **`CliApp`** – menyn. Validerar indata (typ, belopp > 0, kategori får inte vara tom) innan en transaktion skapas och läggs i repot.
 
 ## Status
@@ -51,7 +55,10 @@ src/
 - [x] `enum TransaktionTyp`
 - [x] `record Transaktion`
 - [x] Generisk klass `Repository<T>` med `add`, `findAll`, `findWhere`
-- [ ] Egna undantagsklasser (t.ex. `InvalidTransactionException`, `FileFormatException`)
+- [x] Eget undantag `InvalidTransactionException`
+- [x] `TransaktionValidator` som kastar `InvalidTransactionException`
+- [ ] `CliApp` använder `TransaktionValidator` med `try/catch`
+- [ ] `FileFormatException` för trasiga rader i filen
 
 ### Meny / funktionalitet
 - [x] 1. Lägg till transaktion (med validering av indata)
@@ -71,7 +78,7 @@ src/
   - [x] `assertThrows` – resultatet från `findWhere` går inte att ändra
   - [x] generics + gränsvärden – `Repository<Integer>` med värden runt 100
 - [ ] Testklass för sammanställnings-/beräkningslogiken
-- [ ] Tester för egna undantag med `assertThrows`
+- [ ] `TransaktionValidatorTest` – tester för egna undantag med `assertThrows`
 - [ ] Tester för fil-I/O (läsa/skriva, trasig rad)
 
 ### Loggning
