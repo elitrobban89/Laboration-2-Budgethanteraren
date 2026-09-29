@@ -1,5 +1,3 @@
-import java.awt.print.Book;
-
 public class CliApp {
 
     static void main() {
@@ -29,7 +27,7 @@ public class CliApp {
                 case "5":
                     //metod
                     break;
-                    case "e":
+                case "e":
                     IO.println("Avslutar programmet");
                     running = false; //Avsluta programmet
                     break;
@@ -44,36 +42,27 @@ public class CliApp {
      * Metoden används bara inom klassen
      *
      */
-    private static void skapaTransaktion(enum TransaktionTyp typ) {
-        enum inkomst;
-        enum utgift;
+    private static void skapaTransaktion() {
+       IO.println("---Lägg till transaktion---");
+        String typVal = IO.readln("---Välj typ 1 för INKOMST, 2 för UTGIFT): ---");
 
-        if (inkomst == null || utgift == null) {
-            IO.println("Felaktig input, programmet avslutas");
+        if (typVal == null) {
             return;
         }
-        if (inkomst <0 || utgift < 0) {
+        TransaktionTyp typ;
+        if (typVal.equals("1")) {
+            typ = TransaktionTyp.INKOMST;
+        } else if (typVal.equals("2")) {
+            typ = TransaktionTyp.UTGIFT;
+        } else {
+            IO.println("Ogiltigt val. Mata in 1 för INKOMST eller 2 för UTGIFT: ");
+            return;
+        } IO.println("Du valde: " + typ);
+
+
+        if (inkomst < 0 || utgift < 0) {
             IO.println("Värdet kan inte vara mindre än 0. Mata in rätt värde: ");
             return;
-        }
-
-        /** Använder trimning
-         * Skriver användaren av vana ett mellanslag efter inkomst eller utgift, och felmeddelandet blir
-         *
-         */
-        titel = titel.trim();
-        forfattare = forfattare.trim();
-        isbn = isbn.trim();
-
-        if (titel.isBlank() || forfattare.isBlank() || isbn.isBlank()) {
-            IO.println("Tom input, alla fält måste fyllas i.");
-            return;
-        }
-        Book bok = new Book(titel, forfattare, isbn);
-        if (lib.laggTillBok(bok)) {
-            IO.println("Bok " + bok.titel() + " har lagts till");
-        } else {
-            IO.println("Bok med ISBN " + isbn + " finns redan.");
         }
     }
 
