@@ -43,8 +43,8 @@ public class CliApp {
      *
      */
     private static void skapaTransaktion() {
-       IO.println("---Lägg till transaktion---");
-        String typVal = IO.readln("---Välj typ 1 för INKOMST, 2 för UTGIFT): ---");
+        IO.println("--- 1. Lägg till transaktion ---");
+        String typVal = IO.readln("Välj 1 för INKOMST, 2 för UTGIFT): ");
 
         if (typVal == null) {
             return;
@@ -57,14 +57,27 @@ public class CliApp {
         } else {
             IO.println("Ogiltigt val. Mata in 1 för INKOMST eller 2 för UTGIFT: ");
             return;
-        } IO.println("Du valde: " + typ);
+        }
+        IO.println("Du valde: " + typ);
 
-
-        if (inkomst < 0 || utgift < 0) {
-            IO.println("Värdet kan inte vara mindre än 0. Mata in rätt värde: ");
+        String beloppStr = IO.readln("Ange belopp: ");
+        if (beloppStr == null) {
             return;
         }
+        double belopp;
+        try {
+            belopp = Double.parseDouble(beloppStr.trim());
+        } catch (NumberFormatException e) {
+            IO.println("Felaktigt format på belopp! Mata in ett giltigt tal: ");
+            return;
+        }
+        if (belopp <= 0) {
+            IO.println("Beloppet måste vara större än 0.");
+            return;
+        }
+        IO.println("Belopp: " + belopp + " kr");
     }
+
 
     public static void printMenu() {
         String menyText = """
