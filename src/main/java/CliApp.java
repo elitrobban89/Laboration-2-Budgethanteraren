@@ -23,7 +23,7 @@ public class CliApp {
                     skapaTransaktion();
                     break;
                 case "2":
-                    //metod
+                    visaAllaTransaktioner();
                     break;
                 case "3":
                     //metod
@@ -47,7 +47,7 @@ public class CliApp {
     /**
      * Menyval 1: Skapa transaktion med enum TransaktionTyp
      * Metoden används bara inom klassen
-     *
+     * <p>
      * Sedan lägg till transaktionen i samlingen.
      *
      */
@@ -105,10 +105,26 @@ public class CliApp {
         IO.println("Datum: " + datum);
 
         //Skapa transaktionen
-        Transaktion transaktion = new Transaktion(datum, kategori, belopp,typ);
+        Transaktion transaktion = new Transaktion(datum, kategori, belopp, typ);
         IO.println("Transaktionen har skapats: " + transaktion);
 
         repository.add(transaktion); //Lägger till transaktionen i samlingen.
+    }
+
+    /**
+     * Menyval 2 Visa alla transaktioner
+     * Vi anropar inte findAll varje gång vi loopar pga att det är en kostsam operation
+     */
+    private static void visaAllaTransaktioner() {
+        IO.println("--- 2. Visa alla transaktioner ---");
+        var transaktioner = repository.findAll();
+        if (transaktioner.isEmpty()) {
+            IO.println("Inga transaktioner att visa");
+        } else {
+            for (Transaktion transaktion : transaktioner) {
+                IO.println(transaktion);
+            }
+        }
     }
 
 
