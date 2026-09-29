@@ -1,3 +1,5 @@
+import java.time.LocalDate;
+
 public class CliApp {
 
     static void main() {
@@ -80,6 +82,24 @@ public class CliApp {
             return;
         }
         IO.println("Belopp: " + belopp + " kr");
+
+        //Inläsning och validering av kategori
+
+        String kategori = IO.readln("Ange kategori: ");
+        if (kategori == null || kategori.trim().isEmpty()) {
+            IO.println("Kategori får inte vara tom!");
+            return;
+        }
+        kategori = kategori.trim();
+        IO.println("Kategori: " + kategori);
+
+        //Datumhantering lägger till dagens datum
+        LocalDate datum = LocalDate.now();
+        IO.println("Datum: " + datum);
+
+        //Skapa transaktionen
+        Transaktion transaktion = new Transaktion(datum, kategori, belopp,typ);
+        IO.println("Transaktionen har skapats: " + transaktion);
     }
 
 
