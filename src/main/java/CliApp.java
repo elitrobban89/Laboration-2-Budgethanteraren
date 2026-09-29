@@ -2,6 +2,11 @@ import java.time.LocalDate;
 
 public class CliApp {
 
+    /**
+     * Skapa fält (variabel) för Repository<Transaktion>
+     */
+    private static final Repository<Transaktion> repository = new Repository<>();
+
     static void main() {
         boolean running = true;
         do {
@@ -42,6 +47,8 @@ public class CliApp {
     /**
      * Menyval 1: Skapa transaktion med enum TransaktionTyp
      * Metoden används bara inom klassen
+     *
+     * Sedan lägg till transaktionen i samlingen.
      *
      */
     private static void skapaTransaktion() {
@@ -100,6 +107,8 @@ public class CliApp {
         //Skapa transaktionen
         Transaktion transaktion = new Transaktion(datum, kategori, belopp,typ);
         IO.println("Transaktionen har skapats: " + transaktion);
+
+        repository.add(transaktion); //Lägger till transaktionen i samlingen.
     }
 
 
