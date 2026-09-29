@@ -6,7 +6,7 @@ Uppgiften examinerar främst **läranderesultat 7**: enhetstester med JUnit 5, f
 
 ## Teknik
 
-- Java 25
+- Java 27
 - Maven
 - JUnit 5 (Jupiter)
 
