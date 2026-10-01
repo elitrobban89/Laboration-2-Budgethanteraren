@@ -98,7 +98,36 @@ src/
 
 ## Reflektion: generics och Stream API
 
-*Kommer att fyllas i.*
+### Jämförelse med Laboration 1
+I Laboration 1 (Bibliotekshanteraren) fick vi inte använda generics eller collections.
+Lagringen byggde därför på vanliga arrayer, vilket gav flera problem:
+
+- **Fast storlek** – arrayen fick en bestämd storlek från början, t.ex. `new Bok[100]`.
+  Behövde vi plats för fler fick vi själva skapa en större array och kopiera över allt.
+- **Egen räknare** – vi fick hålla reda på hur många platser som faktiskt var använda
+  (`antal++`) och se upp med `null` i de tomma platserna.
+- **En sökmetod per villkor** – varje sökning (på titel, författare osv.) blev en egen
+  metod med en egen for-loop och if-sats.
+- **Låst till en typ** – lagringen fungerade bara för böcker. Ville man spara något
+  annat fick man skriva en ny klass med nästan samma kod.
+
+### Hur det blev lättare i Laboration 2
+- **`ArrayList`** växer automatiskt. `add()` sköter storlek och räknare åt oss,
+  och det finns inga `null`-luckor att hålla koll på.
+- **Generics (`Repository<T>`)**: samma klass fungerar för vilken typ som helst.
+  I appen lagrar den `Transaktion` och i testerna `Integer`, utan en enda rad ny kod.
+  Kompilatorn kontrollerar också typen, så det går inte att råka lägga en `String`
+  i ett `Repository<Transaktion>`.
+- **`Predicate<T>` + Stream API**: i stället för en sökmetod per villkor räcker det
+  med `findWhere`. Villkoret skickas in som en lambda, t.ex.
+  `repo.findWhere(t -> t.typ() == TransaktionTyp.UTGIFT)`. Nya filter kräver alltså
+  ingen ny metod i `Repository`.
+- **Mindre kod blir lättare att testa**: eftersom `Repository` är liten och generell
+  kunde den testas helt fristående i `RepositoryTest`.
+
+Nackdelen är att mer sker "bakom kulisserna". Med arrayer i Laboration 1 såg man exakt
+vad som hände i varje steg, och det gav en bra förståelse för vad `ArrayList` och
+streams faktiskt gör åt en.
 
 ## Visualisering från Plan mode i Claude
 
