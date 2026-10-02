@@ -58,4 +58,26 @@ public class TransaktionValidatorTest {
         //Act + Assert är 0.01 över gränsen
         assertDoesNotThrow(() -> TransaktionValidator.validate(0.01, "Mat"));
     }
+
+    @Test
+    void testValidate_kategoriTom() {
+        //Act + Assert Kategori kan inte vara tom
+        InvalidTransactionException e = assertThrows(InvalidTransactionException.class,
+                () -> TransaktionValidator.validate(100, "")); //Tom kategori
+        assertEquals("Kategorin måste vara ifylld", e.getMessage());
+    }
+
+    @Test
+    void testValidate_kategoriMellanslag() {
+        //Act + Assert Bara mellanslag som kategori efter trim
+        assertThrows(InvalidTransactionException.class,
+                () -> TransaktionValidator.validate(100, "    ")); //mellanslag i kategori
+    }
+
+    @Test
+    void testValidate_kategoriNull() {
+        //Act + Assert null kategori
+        assertThrows(InvalidTransactionException.class,
+                () -> TransaktionValidator.validate(100, null)); //null i kategori
+    }
 }

@@ -83,12 +83,12 @@ src/
   - [x] gränsfall: `findWhere` på tomt repo
   - [x] `assertThrows` – resultatet från `findWhere` går inte att ändra
   - [x] generics + gränsvärden – `Repository<Integer>` med värden runt 100
-- [ ] `TransaktionValidatorTest` – påbörjad, 6 tester:
+- [ ] `TransaktionValidatorTest` – 9 tester, `NaN`-testet återstår:
   - [x] `parseBelopp` normalfall – `" 100 "` blir `100` (parsning + trim)
   - [x] `parseBelopp` med `null` – ger `InvalidTransactionException`, inte `NullPointerException`
   - [x] `parseBelopp` med bokstäver – `assertThrows` + kontroll av felmeddelandet
   - [x] `validate` gränsvärden för belopp – `0` (på gränsen, kontroll av felmeddelandet), `-5`, och `0.01` (minsta giltiga, `assertDoesNotThrow`)
-  - [ ] `validate` kategori – tom, bara mellanslag, `null`
+  - [x] `validate` kategori – tom (kontroll av felmeddelandet), bara mellanslag, `null`
   - [ ] `NaN`/`Infinity` som belopp (förväntas faila först – kandidat till dokumenterad bugg)
 - [ ] Testklass för sammanställnings-/beräkningslogiken
 - [ ] Tester för fil-I/O (läsa/skriva, trasig rad)

@@ -29,7 +29,7 @@ public class TransaktionValidator {
             throw new InvalidTransactionException("Beloppet måste vara större än 0");
         }
         if (kategori == null || kategori.trim().isEmpty()) {
-            throw new InvalidTransactionException("Kategori måste vara ifylld");
+            throw new InvalidTransactionException("Kategorin måste vara ifylld");
         }
     }
 }
