@@ -1,3 +1,6 @@
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
+
 /**
  * Validerar transaktioner.
  */
@@ -14,6 +17,23 @@ public class TransaktionValidator {
             return Double.parseDouble(text.trim());
         } catch (NumberFormatException e) {
             throw new InvalidTransactionException("Felaktigt format på belopp!");
+        }
+    }
+
+    /**
+     * Gör om text till ett datum i formatet ÅÅÅÅ-MM-DD.
+     * @param text datumet som text, t.ex. "2026-10-01"
+     * @return datumet som LocalDate
+     * @throws InvalidTransactionException om texten saknas eller inte är ett giltigt datum
+     */
+    public static LocalDate parseDatum(String text) throws InvalidTransactionException {
+        if (text == null) {
+            throw new InvalidTransactionException("Datum måste anges");
+        }
+        try {
+            return LocalDate.parse(text.trim());
+        } catch (DateTimeParseException e) {
+            throw new InvalidTransactionException("Felaktigt datum! Ange datum som ÅÅÅÅ-MM-DD, t.ex. 2026-10-01");
         }
     }
 

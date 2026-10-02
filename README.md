@@ -51,6 +51,7 @@ src/
 - **`InvalidTransactionException`** – eget *checked* undantag (`extends Exception`). Eftersom det är checked tvingar kompilatorn anroparen att hantera felet med `try/catch`.
 - **`TransaktionValidator`** – samlar all validering av indata och alla felmeddelanden på ett ställe:
   - `parseBelopp(text)` – gör om text till ett `double`. Kastar `InvalidTransactionException` om texten saknas (`null`) eller inte är ett tal, i stället för att låta `NumberFormatException` nå menyn.
+  - `parseDatum(text)` – gör om text i formatet `ÅÅÅÅ-MM-DD` till ett `LocalDate` med `LocalDate.parse`. Fångar `DateTimeParseException` (t.ex. `abc`, `2026-13-45` eller fel format) och kastar `InvalidTransactionException` med ett svenskt meddelande – samma mönster som `parseBelopp`.
   - `validate(belopp, kategori)` – kastar `InvalidTransactionException` om beloppet är 0, negativt, `NaN` eller `Infinity`, eller om kategorin är tom.
 
   Valideringen ligger i en egen klass (i stället för i menyn) så att den kan testas med JUnit utan tangentbordsinmatning.
@@ -64,6 +65,18 @@ src/
   - Menyval 4 visar en undermeny (`1. Datum`, `2. Typ`). Varje filter har en egen liten metod i `CliApp` (`visaFiltreratPaTyp`, `visaFiltreratPaDatum`) som frågar användaren och sedan anropar motsvarande metod i `BudgetService`. Namnen skiljer sig från `BudgetService`-metoderna med flit: `CliApp` *frågar och visar*, `BudgetService` *räknar*.
   - Hjälpmetoden `skrivUt(List<Transaktion>)` skriver ut resultatet för alla filter, och visar "Inga transaktioner matchade filtret" om listan är tom. Null-kontrollen står först (`transaktioner == null || transaktioner.isEmpty()`) så att `isEmpty()` aldrig anropas på `null`.
   - Typvalet jämförs med `"1".equals(typVal)` i stället för `typVal.equals("1")`, så att `null` (t.ex. Ctrl+D) ger `false` i stället för en `NullPointerException`.
+  - Datumfiltret läser in start- och slutdatum, parsar båda med `parseDatum` i ett gemensamt `try/catch`, och kontrollerar att startdatum inte är efter slutdatum innan `filtreraDatum` anropas. Allt som använder de parsade datumen ligger inne i `try`, eftersom variablerna bara finns i det blocket.
+
+Exempel på menyval 4 (datum):
+```
+Ange startdatum (ÅÅÅÅ-MM-DD): 2099-01-01
+Ange slutdatum (ÅÅÅÅ-MM-DD): 2026-01-01
+Startdatum kan inte vara efter slutdatum
+
+Ange startdatum (ÅÅÅÅ-MM-DD): abc
+Ange slutdatum (ÅÅÅÅ-MM-DD): x
+Felaktigt datum! Ange datum som ÅÅÅÅ-MM-DD, t.ex. 2026-10-01
+```
 
 Exempel på menyval 3:
 ```
@@ -84,6 +97,7 @@ Lön: 25000.0 kr
 - [x] Eget undantag `InvalidTransactionException`
 - [x] `TransaktionValidator` som kastar `InvalidTransactionException`
 - [x] `TransaktionValidator.parseBelopp` – felaktigt format ger `InvalidTransactionException`
+- [x] `TransaktionValidator.parseDatum` – felaktigt datum ger `InvalidTransactionException`
 - [x] `CliApp` använder `TransaktionValidator` med `try/catch`
 - [ ] `FileFormatException` för trasiga rader i filen
 
@@ -98,7 +112,7 @@ Lön: 25000.0 kr
   - [x] `BudgetService.filtreraDatum()` via `findWhere` (gränsdagar räknas med)
   - [x] Undermeny i `CliApp` (`1. Datum`, `2. Typ`) och hjälpmetoden `skrivUt` med tomt fall
   - [x] Filtrering på typ kopplad till menyval 4
-  - [ ] Filtrering på datum kopplad till menyval 4 (inmatning med `LocalDate.parse` och felhantering)
+  - [x] Filtrering på datum kopplad till menyval 4 (inmatning med `parseDatum`, felaktigt datum och bakvänt intervall hanteras utan krasch)
   - [ ] Sortering
 - [ ] 5. Spara till fil (CSV, try-with-resources)
 - [ ] Läsa in transaktioner från fil vid start, hantera saknad/trasig fil utan krasch

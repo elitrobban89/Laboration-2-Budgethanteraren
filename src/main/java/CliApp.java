@@ -180,11 +180,23 @@ public class CliApp {
         }
         skrivUt(budgetService.filtreraTyp(typ));
     }
-
     /**
-     * Menyval 4.1 Frågar efter datumintervall. Byggs i nästa steg.
+     * Menyval 4.1 Frågar efter ett datumintervall och visar transaktionerna inom det.
      */
     private static void visaFiltreratPaDatum() {
+        String startDatumText = IO.readln("Ange startdatum (ÅÅÅÅ-MM-DD): ");
+        String slutDatumText = IO.readln("Ange slutdatum (ÅÅÅÅ-MM-DD): ");
+        try {
+            LocalDate startDatum = TransaktionValidator.parseDatum(startDatumText);
+            LocalDate slutDatum = TransaktionValidator.parseDatum(slutDatumText);
+            if (startDatum.isAfter(slutDatum)) {
+                IO.println("Startdatum kan inte vara efter slutdatum");
+                return;
+            }
+            skrivUt(budgetService.filtreraDatum(startDatum, slutDatum));
+        } catch (InvalidTransactionException e) {
+            IO.println(e.getMessage());
+        }
     }
 
     private static void skrivUt(List<Transaktion> transaktioner) {
