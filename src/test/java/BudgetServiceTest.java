@@ -1,5 +1,5 @@
 import org.junit.jupiter.api.Test;
-
+import java.util.Map;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.time.LocalDate;
@@ -32,5 +32,37 @@ public class BudgetServiceTest {
 
         //Assert - 25000 - 842.50 - 7200 = 16957.50
         assertEquals(16957.50, saldo);
+    }
+
+    @Test
+    void testSummaPerKategori_sammaKategoriSlasIhop() {
+        //Arrange - Tre utgifter: två transaktioner i Mat och en i Hyra
+        Repository<Transaktion> repo = new Repository<>();
+        repo.add(new Transaktion(LocalDate.now(), "Mat", 842.50, TransaktionTyp.UTGIFT));
+        repo.add(new Transaktion(LocalDate.now(), "Mat", 250, TransaktionTyp.UTGIFT));
+        repo.add(new Transaktion(LocalDate.now(), "Hyra", 7200, TransaktionTyp.UTGIFT));
+        BudgetService budgetService = new BudgetService(repo);
+
+        //Act
+        Map<String, Double> perKategori = budgetService.summaPerKategori();
+
+        //Assert
+        assertEquals(2, perKategori.size());            //Två kategorier, inte tre transaktioner
+        assertEquals(1092.50, perKategori.get("Mat"));  //842.50 + 250 slås ihop
+        assertEquals(7200.0, perKategori.get("Hyra"));
+    }
+
+    @Test
+    void testSummaPerKategori_ingaTransaktioner() {
+        //Arrange - tomt repo
+        Repository<Transaktion> repo = new Repository<>();
+        BudgetService budgetService = new BudgetService(repo);
+
+        //Act
+        Map<String, Double> perKategori = budgetService.summaPerKategori();
+
+        //Assert - tom Map, inte null
+        assertNotNull(perKategori);
+        assertTrue(perKategori.isEmpty());
     }
 }

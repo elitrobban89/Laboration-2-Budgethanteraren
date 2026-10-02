@@ -108,11 +108,13 @@ Lön: 25000.0 kr
   - [x] `validate` gränsvärden för belopp – `0` (på gränsen, kontroll av felmeddelandet), `-5`, och `0.01` (minsta giltiga, `assertDoesNotThrow`)
   - [x] `validate` kategori – tom (kontroll av felmeddelandet), bara mellanslag, `null`
   - [x] `NaN`/`Infinity` som belopp – avslöjade en bugg som nu är åtgärdad (se *Felsökning* nedan)
-- [ ] `BudgetServiceTest` – påbörjad, 2 tester. Varje test bygger sitt eget repo i Arrange och skickar in det i `BudgetService`:
+- [x] `BudgetServiceTest` – 4 tester. Varje test bygger sitt eget repo i Arrange och skickar in det i `BudgetService`:
   - [x] `saldo()` gränsfall – inga transaktioner ger `0.0`
   - [x] `saldo()` inkomster minus utgifter – Lön 25000, Mat 842.50, Hyra 7200 ger `16957.50` (förväntat värde uträknat för hand)
-  - [ ] `summaPerKategori()` – samma kategori slås ihop, flera kategorier
-  - [ ] `summaPerKategori()` gränsfall – inga transaktioner ger tom `Map`
+  - [x] `summaPerKategori()` – två Mat-transaktioner slås ihop till en post (`size() == 2`), Mat = `1092.50`, Hyra = `7200.0`
+  - [x] `summaPerKategori()` gränsfall – inga transaktioner ger tom `Map`, inte `null` (`assertNotNull` + `isEmpty()`)
+
+Totalt **24 tester**, alla gröna (`mvn test`). Varje central komponent – `Repository<T>`, `TransaktionValidator` och `BudgetService` – har en egen testklass med normalfall, gränsfall och (där det är rimligt) `assertThrows` för egna undantag.
 - [ ] Tester för fil-I/O (läsa/skriva, trasig rad)
 
 ### Loggning
