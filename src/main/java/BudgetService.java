@@ -1,3 +1,4 @@
+import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -13,7 +14,7 @@ public class BudgetService {
         this.repository = repository;
     }
 
-    /**
+    /** Menyval 3
      * Räknar ut saldot. Alla inkomster minus alla utgifter.
      * Returnera 0 om det inte finns några transaktioner.
      * Belopp sparas som rätt typ utan minustecknet om det ex är en utgift 842.5
@@ -23,7 +24,7 @@ public class BudgetService {
                 TransaktionTyp.INKOMST ? t.belopp() : -t.belopp()).sum();
     }
 
-    /**
+    /** Menyval 3
      * Summerar transaktionerna per kategori.
      * @return är en Map med kategori och summan av transaktionerna. Tom Map om det inte finns några transaktioner.
      */
@@ -32,4 +33,17 @@ public class BudgetService {
                 .collect(Collectors.groupingBy(t -> t.kategori(), //Gruppera efter kategori. Metoden läser fältet.
                         Collectors.summingDouble(t->t.belopp()))); //Summera beloppen för varje kategori
     }
+
+    /**
+     * Menyval 4 Filtrerar transaktionerna efter typ: INKOMST eller UTGIFT.
+     * @param typ INKOMST eller UTGIFT
+     * @return lista med transaktioner av den typen, tom lista om det inte finns några
+     */
+    public List<Transaktion> filtreraTyp(TransaktionTyp typ) {
+        return repository.findWhere(t -> t.typ() == typ); //Använder findWhere-metoden i Repository
+    }
+    /**
+     * Menyval 4 Filtrerar transaktionerna på datum efter: INKOMST eller UTGIFT.
+     *
+     */
 }

@@ -1,4 +1,5 @@
 import org.junit.jupiter.api.Test;
+import java.util.List;
 import java.util.Map;
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -64,5 +65,22 @@ public class BudgetServiceTest {
         //Assert - tom Map, inte null
         assertNotNull(perKategori);
         assertTrue(perKategori.isEmpty());
+    }
+
+    @Test
+    void testFiltreraTyp_baraUtgifter() {
+        //Arrange - en inkomst och två utgifter
+        Repository<Transaktion> repo = new Repository<>();
+        repo.add(new Transaktion(LocalDate.now(), "Lön", 25000, TransaktionTyp.INKOMST));
+        repo.add(new Transaktion(LocalDate.now(), "Mat", 842.50, TransaktionTyp.UTGIFT));
+        repo.add(new Transaktion(LocalDate.now(), "Hyra", 7200, TransaktionTyp.UTGIFT));
+        BudgetService budgetService = new BudgetService(repo);
+
+        //Act
+        List<Transaktion> utgifter = budgetService.filtreraTyp(TransaktionTyp.UTGIFT);
+
+        //Assert
+        assertEquals(2, utgifter.size()); //Bara de två utgifterna, inte lönen
+        assertTrue(utgifter.stream().allMatch(t -> t.typ() == TransaktionTyp.UTGIFT)); //Alla är utgifter
     }
 }
