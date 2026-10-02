@@ -32,7 +32,7 @@ src/
 │   ├── Repository.java                   # Generisk lagringsklass Repository<T>
 │   ├── Transaktion.java                  # record: datum, kategori, belopp, typ
 │   ├── TransaktionTyp.java               # enum: INKOMST, UTGIFT
-│   └── TransaktionValidator.java         # Validerar belopp och kategori
+│   └── TransaktionValidator.java         # Parsar och validerar belopp och kategori
 └── test/java/
     └── RepositoryTest.java  # JUnit 5-tester för Repository<T>
 ```
@@ -46,8 +46,12 @@ src/
   - `findAll()` – returnerar en *kopia* av listan så att repot inte kan ändras utifrån.
   - `findWhere(Predicate<T> villkor)` – filtrerar med Stream API och ett lambda-villkor.
 - **`InvalidTransactionException`** – eget *checked* undantag (`extends Exception`). Eftersom det är checked tvingar kompilatorn anroparen att hantera felet med `try/catch`.
-- **`TransaktionValidator`** – `validate(belopp, kategori)` kastar `InvalidTransactionException` om beloppet är 0 eller negativt, eller om kategorin är tom. Valideringen ligger i en egen klass (i stället för i menyn) så att den kan testas med JUnit utan tangentbordsinmatning.
-- **`CliApp`** – menyn. Validerar indata (typ, belopp > 0, kategori får inte vara tom) innan en transaktion skapas och läggs i repot.
+- **`TransaktionValidator`** – samlar all validering av indata och alla felmeddelanden på ett ställe:
+  - `parseBelopp(text)` – gör om text till ett `double`. Kastar `InvalidTransactionException` om texten saknas (`null`) eller inte är ett tal, i stället för att låta `NumberFormatException` nå menyn.
+  - `validate(belopp, kategori)` – kastar `InvalidTransactionException` om beloppet är 0 eller negativt, eller om kategorin är tom.
+
+  Valideringen ligger i en egen klass (i stället för i menyn) så att den kan testas med JUnit utan tangentbordsinmatning.
+- **`CliApp`** – menyn. Väljer typ och anropar sedan `parseBelopp` och `validate` i ett gemensamt `try/catch`. Vid fel skrivs validatorns meddelande ut med `e.getMessage()` och programmet fortsätter utan att krascha. Kategorin trimmas först efter valideringen, när den säkert inte är `null`.
 
 ## Status
 
@@ -57,7 +61,8 @@ src/
 - [x] Generisk klass `Repository<T>` med `add`, `findAll`, `findWhere`
 - [x] Eget undantag `InvalidTransactionException`
 - [x] `TransaktionValidator` som kastar `InvalidTransactionException`
-- [ ] `CliApp` använder `TransaktionValidator` med `try/catch`
+- [x] `TransaktionValidator.parseBelopp` – felaktigt format ger `InvalidTransactionException`
+- [x] `CliApp` använder `TransaktionValidator` med `try/catch`
 - [ ] `FileFormatException` för trasiga rader i filen
 
 ### Meny / funktionalitet

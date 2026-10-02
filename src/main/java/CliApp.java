@@ -70,34 +70,24 @@ public class CliApp {
         IO.println("Du valde: " + typ);
 
         String beloppStr = IO.readln("Ange belopp: ");
-        if (beloppStr == null) {
-            return;
-        }
         double belopp;
+        String kategori;
 
-        /**
-         * Försöker parsa strängen till ett double värde meddelar om det inte lyckas
-         */
+        //CliApp använder TransaktionValidator (parseBelopp + validate) med try/catch. Alla felmeddelanden ligger i validatorn.
+        //Parsar och validerar belopp och kategori via TransaktionValidator
+        //Vi bytte ut if satserna för att använda TransaktionValidator.validate
+
         try {
-            belopp = Double.parseDouble(beloppStr.trim());
-        } catch (NumberFormatException e) {
-            IO.println("Felaktigt format på belopp! Mata in ett giltigt tal: ");
-            return;
-        }
-        if (belopp <= 0) {
-            IO.println("Beloppet måste vara större än 0.");
-            return;
-        }
-        IO.println("Belopp: " + belopp + " kr");
-
-        //Inläsning och validering av kategori
-
-        String kategori = IO.readln("Ange kategori: ");
-        if (kategori == null || kategori.trim().isEmpty()) {
-            IO.println("Kategori får inte vara tom!");
+            belopp = TransaktionValidator.parseBelopp(beloppStr);
+            kategori = IO.readln("Ange kategori: ");
+            TransaktionValidator.validate(belopp,kategori);
+        } catch (InvalidTransactionException e) {
+            IO.println(e.getMessage());
             return;
         }
         kategori = kategori.trim();
+
+        IO.println("Belopp: " + belopp);
         IO.println("Kategori: " + kategori);
 
         //Datumhantering lägger till dagens datum
