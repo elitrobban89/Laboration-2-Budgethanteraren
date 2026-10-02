@@ -1,3 +1,4 @@
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -43,7 +44,12 @@ public class BudgetService {
         return repository.findWhere(t -> t.typ() == typ); //Använder findWhere-metoden i Repository
     }
     /**
-     * Menyval 4 Filtrerar transaktionerna på datum efter: INKOMST eller UTGIFT.
-     *
+     * Menyval 4 Filtrerar transaktionerna på ett datumintervall.
+     * @param start datum för start av intervallet
+     * @param slut datum för slutet av intervallet
+     * @return lista med transaktioner inom intervallet, tom lista om det inte finns några
      */
+    public List<Transaktion> filtreraDatum(LocalDate start, LocalDate slut) {
+        return repository.findWhere(t -> !t.datum().isBefore(start) && !t.datum().isAfter(slut)); //Åtgärd av bugg om datumet är gränsdagen ska vi få med transaktionen i filtret
+    }
 }

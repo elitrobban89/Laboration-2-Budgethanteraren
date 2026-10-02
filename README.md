@@ -58,6 +58,8 @@ src/
   - Repot skickas in via konstruktorn (`new BudgetService(repository)`), så att tjänsten räknar på samma repo som menyn lägger till transaktioner i – och så att tester kan skicka in ett eget repo.
   - `saldo()` – inkomster minus utgifter med Stream API: `mapToDouble` gör varje inkomst till `+belopp` och varje utgift till `-belopp`, och `sum()` summerar. Beloppen sparas alltid positiva; det är typen (`INKOMST`/`UTGIFT`) som avgör tecknet. Inga transaktioner ger `0.0`.
   - `summaPerKategori()` – returnerar en `Map<String, Double>` med kategorin som nyckel och summan som värde. Byggs med `Collectors.groupingBy(t -> t.kategori(), Collectors.summingDouble(t -> t.belopp()))`: transaktioner med samma kategori hamnar i samma grupp och deras belopp summeras. Här räknas inte inkomst minus utgift – varje kategori summeras för sig. Inga transaktioner ger en tom `Map`.
+  - `filtreraTyp(typ)` – returnerar bara inkomster eller bara utgifter. Använder `repository.findWhere(t -> t.typ() == typ)`, så villkoret skickas in som en lambda och `Repository` behöver ingen egen metod för typfilter.
+  - `filtreraDatum(start, slut)` – returnerar transaktioner inom ett datumintervall, där **båda gränsdagarna räknas med**: `findWhere(t -> !t.datum().isBefore(start) && !t.datum().isAfter(slut))`.
 - **`CliApp`** – menyn. Väljer typ och anropar sedan `parseBelopp` och `validate` i ett gemensamt `try/catch`. Vid fel skrivs validatorns meddelande ut med `e.getMessage()` och programmet fortsätter utan att krascha. Kategorin trimmas först efter valideringen, när den säkert inte är `null`. Menyval 3 hämtar saldot och summan per kategori från `BudgetService` och skriver ut dem; finns inga transaktioner visas ett meddelande i stället för en tom lista.
 
 Exempel på menyval 3:
@@ -89,6 +91,10 @@ Lön: 25000.0 kr
   - [x] Saldo (inkomster − utgifter) via `BudgetService.saldo()`
   - [x] Summa per kategori via `BudgetService.summaPerKategori()` (Stream: `groupingBy`/`summingDouble`)
 - [ ] 4. Filtrera/sortera transaktioner (datumintervall, typ)
+  - [x] `BudgetService.filtreraTyp()` via `findWhere`
+  - [x] `BudgetService.filtreraDatum()` via `findWhere` (gränsdagar räknas med)
+  - [ ] Kopplat till menyval 4 i `CliApp` (inmatning av typ/datum)
+  - [ ] Sortering
 - [ ] 5. Spara till fil (CSV, try-with-resources)
 - [ ] Läsa in transaktioner från fil vid start, hantera saknad/trasig fil utan krasch
 - [x] e. Avsluta
@@ -108,13 +114,15 @@ Lön: 25000.0 kr
   - [x] `validate` gränsvärden för belopp – `0` (på gränsen, kontroll av felmeddelandet), `-5`, och `0.01` (minsta giltiga, `assertDoesNotThrow`)
   - [x] `validate` kategori – tom (kontroll av felmeddelandet), bara mellanslag, `null`
   - [x] `NaN`/`Infinity` som belopp – avslöjade en bugg som nu är åtgärdad (se *Felsökning* nedan)
-- [x] `BudgetServiceTest` – 4 tester. Varje test bygger sitt eget repo i Arrange och skickar in det i `BudgetService`:
+- [x] `BudgetServiceTest` – 6 tester. Varje test bygger sitt eget repo i Arrange och skickar in det i `BudgetService`:
   - [x] `saldo()` gränsfall – inga transaktioner ger `0.0`
   - [x] `saldo()` inkomster minus utgifter – Lön 25000, Mat 842.50, Hyra 7200 ger `16957.50` (förväntat värde uträknat för hand)
   - [x] `summaPerKategori()` – två Mat-transaktioner slås ihop till en post (`size() == 2`), Mat = `1092.50`, Hyra = `7200.0`
   - [x] `summaPerKategori()` gränsfall – inga transaktioner ger tom `Map`, inte `null` (`assertNotNull` + `isEmpty()`)
+  - [x] `filtreraTyp()` – bara utgifterna kommer med (`size() == 2` + `allMatch` att alla är `UTGIFT`)
+  - [x] `filtreraDatum()` gränsvärden – en transaktion på varje gränsdag, en i mitten och en precis utanför på var sida; 3 av 5 ska med. Avslöjade en bugg (se *Felsökning* nedan)
 
-Totalt **24 tester**, alla gröna (`mvn test`). Varje central komponent – `Repository<T>`, `TransaktionValidator` och `BudgetService` – har en egen testklass med normalfall, gränsfall och (där det är rimligt) `assertThrows` för egna undantag.
+Totalt **26 tester**, alla gröna (`mvn test`). Varje central komponent – `Repository<T>`, `TransaktionValidator` och `BudgetService` – har en egen testklass med normalfall, gränsfall och (där det är rimligt) `assertThrows` för egna undantag.
 - [ ] Tester för fil-I/O (läsa/skriva, trasig rad)
 
 ### Loggning
@@ -122,12 +130,12 @@ Totalt **24 tester**, alla gröna (`mvn test`). Varje central komponent – `Rep
 - [ ] Loggning med flera nivåer – DEBUG/INFO/WARNING/ERROR – konsekvent i hela appen (VG)
 
 ### Dokumentation
-- [x] Minst en dokumenterad bugg (se nedan)
+- [x] Minst en dokumenterad bugg (se nedan) – två buggar dokumenterade
 - [ ] Reflektion kring generics och Stream API (VG)
 
 ## Felsökning – dokumenterad bugg
 
-### Bugg: `NaN` och `Infinity` godkändes som belopp
+### Bugg 1: `NaN` och `Infinity` godkändes som belopp
 
 **Symptom:** Om användaren skrev `NaN` eller `Infinity` som belopp (eller ett jättestort tal som `1e400`)
 skapades en transaktion utan felmeddelande:
@@ -214,6 +222,82 @@ Testerna ligger kvar som **regressionstester** – om någon senare tar bort `is
 
 **Lärdom:** testa inte bara "vanliga" felaktiga värden (0, negativt, bokstäver) utan även
 specialvärden som datatypen själv tillåter – för `double` är det `NaN` och `Infinity`.
+
+### Bugg 2: datumfiltret missade gränsdagarna
+
+**Symptom:** `filtreraDatum(start, slut)` skulle returnera alla transaktioner i ett intervall, t.ex. hela
+oktober (`2026-10-01` – `2026-10-31`). Transaktioner som låg **på** första eller sista dagen kom inte med –
+bara de som låg strikt mellan gränserna.
+
+Den första versionen av villkoret var:
+
+```java
+return repository.findWhere(t -> t.datum().isBefore(slut) && t.datum().isAfter(start));
+```
+
+Koden såg rimlig ut och fungerade för datum mitt i intervallet, så felet syntes inte vid en snabb provkörning.
+
+#### 1. Upptäckt – failande gränsvärdestest
+Testet `testFiltreraDatum_gransdagarRaknasMed` skapar fem transaktioner – en precis före intervallet,
+en på varje gränsdag, en i mitten och en precis efter – och förväntar sig att tre kommer med:
+
+```
+  30 sep  |  1 okt  ...  15 okt  ...  31 okt  |  1 nov
+  Före    |  Start       Mitt         Slut    |  Efter
+  ✗       |  ✓           ✓            ✓       |  ✗
+```
+
+```java
+List<Transaktion> oktober = budgetService.filtreraDatum(LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 31));
+assertEquals(3, oktober.size());
+```
+
+Testet blev rött:
+
+```
+testFiltreraDatum_gransdagarRaknasMed  expected: <3> but was: <1>
+```
+
+Bara **en** av tre förväntade transaktioner kom med.
+
+#### 2. Felsökning – lambdabreakpoint, stegning och watches
+- En **lambdabreakpoint** sattes på lambdan `t -> ...` i `filtreraDatum` (i IntelliJ: klicka i marginalen
+  och välj λ i stället för *Line*). Då stannar debuggern **en gång per transaktion** som filtret testar.
+- Testet kördes i **Debug**-läge och jag stegade mellan transaktionerna med *Resume* (F9).
+- En **watch** lades till för `t.datum().isAfter(start)`, så att värdet visades automatiskt vid varje stopp:
+
+| `t` | Datum | `t.datum().isAfter(start)` |
+|---|---|---|
+| Före | 2026-09-30 | `false` |
+| **Start** | **2026-10-01** | **`false`** ← borde komma med |
+| Mitt | 2026-10-15 | `true` |
+
+- På samma sätt gav `t.datum().isBefore(slut)` **`false`** för Slut (`2026-10-31`).
+
+Under felsökningen visade IntelliJ *"repository not available"* inne i lambdan. Det är normalt: en lambda
+tar bara med sig de variabler den använder (`t`, `start`, `slut`), inte resten av objektet.
+
+**Orsak:** `isAfter` och `isBefore` i `LocalDate` är **strikta** – samma dag räknas varken som "efter" eller
+"före". 1 okt är alltså inte "efter" 1 okt, och 31 okt är inte "före" 31 okt. Därför föll båda gränsdagarna bort.
+Det motsvarar skillnaden mellan "över 18 år" och "18 år eller äldre".
+
+#### 3. Åtgärd
+Villkoret vändes till "inte före start" och "inte efter slut", vilket betyder "samma dag eller senare"
+respektive "samma dag eller tidigare":
+
+```java
+// Före
+t -> t.datum().isBefore(slut) && t.datum().isAfter(start)
+
+// Efter
+t -> !t.datum().isBefore(start) && !t.datum().isAfter(slut)
+```
+
+**Verifiering:** `testFiltreraDatum_gransdagarRaknasMed` blev grönt (Start, Mitt och Slut kommer med,
+Före och Efter inte), och alla 26 tester går igenom (`mvn test`). Testet ligger kvar som regressionstest.
+
+**Lärdom:** fel vid gränsvärden syns inte om man bara provar med ett värde mitt i intervallet. Ett bra
+gränsvärdestest har ett värde **på** varje gräns och ett **precis utanför** varje gräns.
 
 ## Reflektion: generics och Stream API
 

@@ -83,4 +83,22 @@ public class BudgetServiceTest {
         assertEquals(2, utgifter.size()); //Bara de två utgifterna, inte lönen
         assertTrue(utgifter.stream().allMatch(t -> t.typ() == TransaktionTyp.UTGIFT)); //Alla är utgifter
     }
+
+    @Test
+    void testFiltreraDatum_gransdagarRaknasMed() {
+        //Arrange - en transaktion på varje gräns, en i mitten och två utanför
+        Repository<Transaktion> repo = new Repository<>();
+        repo.add(new Transaktion(LocalDate.of(2026, 9, 30), "Före", 100, TransaktionTyp.UTGIFT));  //dagen före intervallet
+        repo.add(new Transaktion(LocalDate.of(2026, 10, 1), "Start", 100, TransaktionTyp.UTGIFT)); //första dagen
+        repo.add(new Transaktion(LocalDate.of(2026, 10, 15), "Mitt", 100, TransaktionTyp.UTGIFT)); //mitt i
+        repo.add(new Transaktion(LocalDate.of(2026, 10, 31), "Slut", 100, TransaktionTyp.UTGIFT)); //sista dagen
+        repo.add(new Transaktion(LocalDate.of(2026, 11, 1), "Efter", 100, TransaktionTyp.UTGIFT)); //dagen efter intervallet
+        BudgetService budgetService = new BudgetService(repo);
+
+        //Act - hela oktober
+        List<Transaktion> oktober = budgetService.filtreraDatum(LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 31));
+
+        //Assert - Start, Mitt och Slut ska med. Före och Efter ska inte med.
+        assertEquals(3, oktober.size());
+    }
 }
