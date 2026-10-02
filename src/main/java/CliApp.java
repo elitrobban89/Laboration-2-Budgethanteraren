@@ -1,4 +1,5 @@
 import java.time.LocalDate;
+import java.util.Map;
 
 public class CliApp {
 
@@ -81,7 +82,7 @@ public class CliApp {
         try {
             belopp = TransaktionValidator.parseBelopp(beloppStr);
             kategori = IO.readln("Ange kategori: ");
-            TransaktionValidator.validate(belopp,kategori);
+            TransaktionValidator.validate(belopp, kategori);
         } catch (InvalidTransactionException e) {
             IO.println(e.getMessage());
             return;
@@ -117,15 +118,29 @@ public class CliApp {
             }
         }
     }
+
     /**
      * Menyval 3 Visa saldo och sammanställning per kategori
      *
      */
     private static void visaSaldoochSammanstallning() {
+        //Saldo:
         IO.println("--- 3. Visa saldo och sammanställning per kategori ---");
         double saldo = budgetService.saldo();
         IO.println("Saldo: " + saldo + " kr");
+        IO.println("");
+
+        //Summa per kategori:
+        IO.println("Summa per kategori: ");
+        Map<String, Double> sammanstallning = budgetService.summaPerKategori();
+        if (sammanstallning.isEmpty()) { //Per kategori om inga transaktioner finns.
+            IO.println("Inga transaktioner att visa");
+        } else {
+            for (Map.Entry<String, Double> entry : sammanstallning.entrySet()) {
+                IO.println(entry.getKey() + ": " + entry.getValue() + " kr");
+            }
         }
+    }
 
     public static void printMenu() {
         String menyText = """
