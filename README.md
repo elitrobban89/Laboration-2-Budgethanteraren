@@ -35,6 +35,7 @@ src/
 │   ├── TransaktionTyp.java               # enum: INKOMST, UTGIFT
 │   └── TransaktionValidator.java         # Parsar och validerar belopp och kategori
 └── test/java/
+    ├── BudgetServiceTest.java         # JUnit 5-tester för beräkningarna i BudgetService
     ├── RepositoryTest.java            # JUnit 5-tester för Repository<T>
     └── TransaktionValidatorTest.java  # JUnit 5-tester för TransaktionValidator
 ```
@@ -107,7 +108,11 @@ Lön: 25000.0 kr
   - [x] `validate` gränsvärden för belopp – `0` (på gränsen, kontroll av felmeddelandet), `-5`, och `0.01` (minsta giltiga, `assertDoesNotThrow`)
   - [x] `validate` kategori – tom (kontroll av felmeddelandet), bara mellanslag, `null`
   - [x] `NaN`/`Infinity` som belopp – avslöjade en bugg som nu är åtgärdad (se *Felsökning* nedan)
-- [ ] `BudgetServiceTest` – tester för beräkningslogiken (saldo: inga transaktioner, bara inkomster, bara utgifter, blandat; summa per kategori)
+- [ ] `BudgetServiceTest` – påbörjad, 2 tester. Varje test bygger sitt eget repo i Arrange och skickar in det i `BudgetService`:
+  - [x] `saldo()` gränsfall – inga transaktioner ger `0.0`
+  - [x] `saldo()` inkomster minus utgifter – Lön 25000, Mat 842.50, Hyra 7200 ger `16957.50` (förväntat värde uträknat för hand)
+  - [ ] `summaPerKategori()` – samma kategori slås ihop, flera kategorier
+  - [ ] `summaPerKategori()` gränsfall – inga transaktioner ger tom `Map`
 - [ ] Tester för fil-I/O (läsa/skriva, trasig rad)
 
 ### Loggning
