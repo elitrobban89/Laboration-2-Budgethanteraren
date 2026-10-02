@@ -37,4 +37,25 @@ public class TransaktionValidatorTest {
                 () -> TransaktionValidator.parseBelopp(beloppStr));
         assertEquals("Felaktigt format på belopp!", e.getMessage());
     }
+
+    @Test
+    void testValidate_beloppNoll() {
+        //Act + Assert är 0 på gränsen
+        InvalidTransactionException e = assertThrows(InvalidTransactionException.class,
+                () -> TransaktionValidator.validate(0, "Mat"));
+        assertEquals("Beloppet måste vara större än 0", e.getMessage());
+    }
+
+    @Test
+    void testValidate_beloppNegativt() {
+        //Act + Assert Negativt belopp ska inte godkännas
+        assertThrows(InvalidTransactionException.class,
+                () -> TransaktionValidator.validate(-5, "Mat"));
+    }
+
+    @Test
+    void testValidate_minstaGiltigaBelopp() { //Motsatsen till assertThrows. Testet går igenom om inget undantag kastas.
+        //Act + Assert är 0.01 över gränsen
+        assertDoesNotThrow(() -> TransaktionValidator.validate(0.01, "Mat"));
+    }
 }

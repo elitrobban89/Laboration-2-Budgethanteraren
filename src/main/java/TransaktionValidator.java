@@ -26,7 +26,7 @@ public class TransaktionValidator {
      */
     public static void validate(double belopp, String kategori) throws InvalidTransactionException {
         if (belopp <= 0) {
-            throw new InvalidTransactionException("Belopp måste vara större än 0");
+            throw new InvalidTransactionException("Beloppet måste vara större än 0");
         }
         if (kategori == null || kategori.trim().isEmpty()) {
             throw new InvalidTransactionException("Kategori måste vara ifylld");
