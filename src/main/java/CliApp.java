@@ -149,7 +149,7 @@ public class CliApp {
      */
     private static void filtreraTransaktioner() {
         IO.println("--- 4.Filtrera transaktioner ---");
-        String val = IO.readln("Välj filtrering: \n1. Datum\n2. Typ\nVälj: ");
+        String val = IO.readln("Välj filtrering: \n1. Datum\n2. Typ\n3 Alla, sorterade på datum\nVälj: ");
         if (val == null) {
             IO.println("Ogiltigt val");
             return;
@@ -158,6 +158,8 @@ public class CliApp {
             visaFiltreratPaDatum();
         } else if (val.equals("2")) {
             visaFiltreratPaTyp();
+        } else if(val.equals("3")) {
+            skrivUt(budgetService.sorteraPaDatum());
         } else {
             IO.println("Ogiltigt val");
         }

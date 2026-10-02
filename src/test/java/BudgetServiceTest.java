@@ -1,3 +1,4 @@
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import java.util.List;
 import java.util.Map;
@@ -100,5 +101,25 @@ public class BudgetServiceTest {
 
         //Assert - Start, Mitt och Slut ska med. Före och Efter ska inte med.
         assertEquals(3, oktober.size());
+    }
+
+    @Test
+    @DisplayName("Hämtar alla transaktioner sorterade på datum äldst först.")
+    void testSorteraPaDatum_aldstForst() {
+        //Arrange - lägg till i oordning
+        Repository<Transaktion> repo = new Repository<>();
+        repo.add(new Transaktion(LocalDate.of(2026, 10, 31), "Hyra", 7200, TransaktionTyp.UTGIFT));
+        repo.add(new Transaktion(LocalDate.of(2026, 9, 25), "Lön", 25000, TransaktionTyp.INKOMST));
+        repo.add(new Transaktion(LocalDate.of(2026, 10, 15), "Mat", 842.50, TransaktionTyp.UTGIFT));
+        BudgetService budgetService = new BudgetService(repo);
+
+        //Act
+        List<Transaktion> sorterade = budgetService.sorteraPaDatum();
+
+        //Assert - alla tre är kvar, i datumordning
+        assertEquals(3, sorterade.size());
+        assertEquals("Lön", sorterade.get(0).kategori());   //25 sep
+        assertEquals("Mat", sorterade.get(1).kategori());   //15 okt
+        assertEquals("Hyra", sorterade.get(2).kategori());  //31 okt
     }
 }

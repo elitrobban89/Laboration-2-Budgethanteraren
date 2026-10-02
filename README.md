@@ -27,7 +27,7 @@ Applikationen startas från `CliApp` (t.ex. via Run i IntelliJ).
 ```
 src/
 ├── main/java/
-│   ├── BudgetService.java                # Beräkningar: saldo och summa per kategori
+│   ├── BudgetService.java                # Beräkningar: saldo, summa per kategori, filtrering, sortering
 │   ├── CliApp.java                       # Meny och användarinteraktion
 │   ├── InvalidTransactionException.java  # Eget checked undantag för ogiltiga transaktioner
 │   ├── Repository.java                   # Generisk lagringsklass Repository<T>
@@ -61,8 +61,9 @@ src/
   - `summaPerKategori()` – returnerar en `Map<String, Double>` med kategorin som nyckel och summan som värde. Byggs med `Collectors.groupingBy(t -> t.kategori(), Collectors.summingDouble(t -> t.belopp()))`: transaktioner med samma kategori hamnar i samma grupp och deras belopp summeras. Här räknas inte inkomst minus utgift – varje kategori summeras för sig. Inga transaktioner ger en tom `Map`.
   - `filtreraTyp(typ)` – returnerar bara inkomster eller bara utgifter. Använder `repository.findWhere(t -> t.typ() == typ)`, så villkoret skickas in som en lambda och `Repository` behöver ingen egen metod för typfilter.
   - `filtreraDatum(start, slut)` – returnerar transaktioner inom ett datumintervall, där **båda gränsdagarna räknas med**: `findWhere(t -> !t.datum().isBefore(start) && !t.datum().isAfter(slut))`.
+  - `sorteraPaDatum()` – returnerar alla transaktioner sorterade på datum, äldst först: `stream().sorted(Comparator.comparing(t -> t.datum())).toList()`. Skillnaden mot filtrering: **filtrering väljer *vilka*** transaktioner som visas (färre eller lika många), **sortering bestämmer *ordningen*** (alla är kvar). Repot ändras inte – `findAll()` ger en kopia och `sorted()` skapar en ny ström.
 - **`CliApp`** – menyn. Väljer typ och anropar sedan `parseBelopp` och `validate` i ett gemensamt `try/catch`. Vid fel skrivs validatorns meddelande ut med `e.getMessage()` och programmet fortsätter utan att krascha. Kategorin trimmas först efter valideringen, när den säkert inte är `null`. Menyval 3 hämtar saldot och summan per kategori från `BudgetService` och skriver ut dem; finns inga transaktioner visas ett meddelande i stället för en tom lista.
-  - Menyval 4 visar en undermeny (`1. Datum`, `2. Typ`). Varje filter har en egen liten metod i `CliApp` (`visaFiltreratPaTyp`, `visaFiltreratPaDatum`) som frågar användaren och sedan anropar motsvarande metod i `BudgetService`. Namnen skiljer sig från `BudgetService`-metoderna med flit: `CliApp` *frågar och visar*, `BudgetService` *räknar*.
+  - Menyval 4 visar en undermeny (`1. Datum`, `2. Typ`, `3. Alla, sorterade på datum`). Varje filter har en egen liten metod i `CliApp` (`visaFiltreratPaTyp`, `visaFiltreratPaDatum`) som frågar användaren och sedan anropar motsvarande metod i `BudgetService`. Namnen skiljer sig från `BudgetService`-metoderna med flit: `CliApp` *frågar och visar*, `BudgetService` *räknar*.
   - Hjälpmetoden `skrivUt(List<Transaktion>)` skriver ut resultatet för alla filter, och visar "Inga transaktioner matchade filtret" om listan är tom. Null-kontrollen står först (`transaktioner == null || transaktioner.isEmpty()`) så att `isEmpty()` aldrig anropas på `null`.
   - Typvalet jämförs med `"1".equals(typVal)` i stället för `typVal.equals("1")`, så att `null` (t.ex. Ctrl+D) ger `false` i stället för en `NullPointerException`.
   - Datumfiltret läser in start- och slutdatum, parsar båda med `parseDatum` i ett gemensamt `try/catch`, och kontrollerar att startdatum inte är efter slutdatum innan `filtreraDatum` anropas. Allt som använder de parsade datumen ligger inne i `try`, eftersom variablerna bara finns i det blocket.
@@ -107,13 +108,13 @@ Lön: 25000.0 kr
 - [x] 3. Visa saldo och sammanställning per kategori
   - [x] Saldo (inkomster − utgifter) via `BudgetService.saldo()`
   - [x] Summa per kategori via `BudgetService.summaPerKategori()` (Stream: `groupingBy`/`summingDouble`)
-- [ ] 4. Filtrera/sortera transaktioner (datumintervall, typ)
+- [x] 4. Filtrera/sortera transaktioner (datumintervall, typ, sortering på datum)
   - [x] `BudgetService.filtreraTyp()` via `findWhere`
   - [x] `BudgetService.filtreraDatum()` via `findWhere` (gränsdagar räknas med)
   - [x] Undermeny i `CliApp` (`1. Datum`, `2. Typ`) och hjälpmetoden `skrivUt` med tomt fall
   - [x] Filtrering på typ kopplad till menyval 4
   - [x] Filtrering på datum kopplad till menyval 4 (inmatning med `parseDatum`, felaktigt datum och bakvänt intervall hanteras utan krasch)
-  - [ ] Sortering
+  - [x] Sortering: `BudgetService.sorteraPaDatum()` med `Comparator`, val 3 i undermenyn
 - [ ] 5. Spara till fil (CSV, try-with-resources)
 - [ ] Läsa in transaktioner från fil vid start, hantera saknad/trasig fil utan krasch
 - [x] e. Avsluta
@@ -133,15 +134,16 @@ Lön: 25000.0 kr
   - [x] `validate` gränsvärden för belopp – `0` (på gränsen, kontroll av felmeddelandet), `-5`, och `0.01` (minsta giltiga, `assertDoesNotThrow`)
   - [x] `validate` kategori – tom (kontroll av felmeddelandet), bara mellanslag, `null`
   - [x] `NaN`/`Infinity` som belopp – avslöjade en bugg som nu är åtgärdad (se *Felsökning* nedan)
-- [x] `BudgetServiceTest` – 6 tester. Varje test bygger sitt eget repo i Arrange och skickar in det i `BudgetService`:
+- [x] `BudgetServiceTest` – 7 tester. Varje test bygger sitt eget repo i Arrange och skickar in det i `BudgetService`:
   - [x] `saldo()` gränsfall – inga transaktioner ger `0.0`
   - [x] `saldo()` inkomster minus utgifter – Lön 25000, Mat 842.50, Hyra 7200 ger `16957.50` (förväntat värde uträknat för hand)
   - [x] `summaPerKategori()` – två Mat-transaktioner slås ihop till en post (`size() == 2`), Mat = `1092.50`, Hyra = `7200.0`
   - [x] `summaPerKategori()` gränsfall – inga transaktioner ger tom `Map`, inte `null` (`assertNotNull` + `isEmpty()`)
   - [x] `filtreraTyp()` – bara utgifterna kommer med (`size() == 2` + `allMatch` att alla är `UTGIFT`)
   - [x] `filtreraDatum()` gränsvärden – en transaktion på varje gränsdag, en i mitten och en precis utanför på var sida; 3 av 5 ska med. Avslöjade en bugg (se *Felsökning* nedan)
+  - [x] `sorteraPaDatum()` – transaktionerna läggs till i oordning; alla tre finns kvar (`size() == 3`) och ligger i datumordning (`get(0)`, `get(1)`, `get(2)`)
 
-Totalt **26 tester**, alla gröna (`mvn test`). Varje central komponent – `Repository<T>`, `TransaktionValidator` och `BudgetService` – har en egen testklass med normalfall, gränsfall och (där det är rimligt) `assertThrows` för egna undantag.
+Totalt **27 tester**, alla gröna (`mvn test`). Varje central komponent – `Repository<T>`, `TransaktionValidator` och `BudgetService` – har en egen testklass med normalfall, gränsfall och (där det är rimligt) `assertThrows` för egna undantag.
 - [ ] Tester för fil-I/O (läsa/skriva, trasig rad)
 
 ### Loggning
