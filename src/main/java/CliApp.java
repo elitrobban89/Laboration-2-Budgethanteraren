@@ -1,5 +1,6 @@
 import java.time.LocalDate;
 import java.util.Map;
+import java.util.List;
 
 public class CliApp {
 
@@ -31,7 +32,7 @@ public class CliApp {
                     visaSaldoochSammanstallning();
                     break;
                 case "4":
-                    //metod
+                    filtreraTransaktioner();
                     break;
                 case "5":
                     //metod
@@ -139,6 +140,60 @@ public class CliApp {
             for (Map.Entry<String, Double> entry : sammanstallning.entrySet()) {
                 IO.println(entry.getKey() + ": " + entry.getValue() + " kr");
             }
+        }
+    }
+
+    /**
+     * Menyval 4 Filtrera på datum eller typ
+     *
+     */
+    private static void filtreraTransaktioner() {
+        IO.println("--- 4.Filtrera transaktioner ---");
+        String val = IO.readln("Välj filtrering: \n1. Datum\n2. Typ\nVälj: ");
+        if (val == null) {
+            IO.println("Ogiltigt val");
+            return;
+        }
+        if (val.equals("1")) {
+            visaFiltreratPaDatum();
+        } else if (val.equals("2")) {
+            visaFiltreratPaTyp();
+        } else {
+            IO.println("Ogiltigt val");
+        }
+    }
+
+    /**
+     * Menyval 4.2 Filtrerat på typ
+     *
+     */
+    private static void visaFiltreratPaTyp() {
+        String typVal = IO.readln("Välj 1 för INKOMST, 2 för UTGIFT: ");
+        TransaktionTyp typ;
+        if ("1".equals(typVal)) {
+            typ = TransaktionTyp.INKOMST;
+        } else if ("2".equals(typVal)) {
+            typ = TransaktionTyp.UTGIFT;
+        } else {
+            IO.println("Ogiltigt val");
+            return;
+        }
+        skrivUt(budgetService.filtreraTyp(typ));
+    }
+
+    /**
+     * Menyval 4.1 Frågar efter datumintervall. Byggs i nästa steg.
+     */
+    private static void visaFiltreratPaDatum() {
+    }
+
+    private static void skrivUt(List<Transaktion> transaktioner) {
+        if (transaktioner == null || transaktioner.isEmpty()) {
+            IO.println("Inga transaktioner matchade filtret");
+            return;
+        }
+        for (Transaktion transaktion : transaktioner) {
+            IO.println(transaktion);
         }
     }
 

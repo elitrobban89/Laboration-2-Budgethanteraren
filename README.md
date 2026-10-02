@@ -61,6 +61,9 @@ src/
   - `filtreraTyp(typ)` – returnerar bara inkomster eller bara utgifter. Använder `repository.findWhere(t -> t.typ() == typ)`, så villkoret skickas in som en lambda och `Repository` behöver ingen egen metod för typfilter.
   - `filtreraDatum(start, slut)` – returnerar transaktioner inom ett datumintervall, där **båda gränsdagarna räknas med**: `findWhere(t -> !t.datum().isBefore(start) && !t.datum().isAfter(slut))`.
 - **`CliApp`** – menyn. Väljer typ och anropar sedan `parseBelopp` och `validate` i ett gemensamt `try/catch`. Vid fel skrivs validatorns meddelande ut med `e.getMessage()` och programmet fortsätter utan att krascha. Kategorin trimmas först efter valideringen, när den säkert inte är `null`. Menyval 3 hämtar saldot och summan per kategori från `BudgetService` och skriver ut dem; finns inga transaktioner visas ett meddelande i stället för en tom lista.
+  - Menyval 4 visar en undermeny (`1. Datum`, `2. Typ`). Varje filter har en egen liten metod i `CliApp` (`visaFiltreratPaTyp`, `visaFiltreratPaDatum`) som frågar användaren och sedan anropar motsvarande metod i `BudgetService`. Namnen skiljer sig från `BudgetService`-metoderna med flit: `CliApp` *frågar och visar*, `BudgetService` *räknar*.
+  - Hjälpmetoden `skrivUt(List<Transaktion>)` skriver ut resultatet för alla filter, och visar "Inga transaktioner matchade filtret" om listan är tom. Null-kontrollen står först (`transaktioner == null || transaktioner.isEmpty()`) så att `isEmpty()` aldrig anropas på `null`.
+  - Typvalet jämförs med `"1".equals(typVal)` i stället för `typVal.equals("1")`, så att `null` (t.ex. Ctrl+D) ger `false` i stället för en `NullPointerException`.
 
 Exempel på menyval 3:
 ```
@@ -93,7 +96,9 @@ Lön: 25000.0 kr
 - [ ] 4. Filtrera/sortera transaktioner (datumintervall, typ)
   - [x] `BudgetService.filtreraTyp()` via `findWhere`
   - [x] `BudgetService.filtreraDatum()` via `findWhere` (gränsdagar räknas med)
-  - [ ] Kopplat till menyval 4 i `CliApp` (inmatning av typ/datum)
+  - [x] Undermeny i `CliApp` (`1. Datum`, `2. Typ`) och hjälpmetoden `skrivUt` med tomt fall
+  - [x] Filtrering på typ kopplad till menyval 4
+  - [ ] Filtrering på datum kopplad till menyval 4 (inmatning med `LocalDate.parse` och felhantering)
   - [ ] Sortering
 - [ ] 5. Spara till fil (CSV, try-with-resources)
 - [ ] Läsa in transaktioner från fil vid start, hantera saknad/trasig fil utan krasch
