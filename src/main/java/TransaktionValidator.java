@@ -25,7 +25,7 @@ public class TransaktionValidator {
      * @throws InvalidTransactionException om beloppet är 0 eller negativt, eller om kategorin är tom
      */
     public static void validate(double belopp, String kategori) throws InvalidTransactionException {
-        if (belopp <= 0) {
+        if (!Double.isFinite(belopp) || belopp <= 0) { //Soppar vid NaN och Infinity tal
             throw new InvalidTransactionException("Beloppet måste vara större än 0");
         }
         if (kategori == null || kategori.trim().isEmpty()) {

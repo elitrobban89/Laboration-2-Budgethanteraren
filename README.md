@@ -49,7 +49,7 @@ src/
 - **`InvalidTransactionException`** – eget *checked* undantag (`extends Exception`). Eftersom det är checked tvingar kompilatorn anroparen att hantera felet med `try/catch`.
 - **`TransaktionValidator`** – samlar all validering av indata och alla felmeddelanden på ett ställe:
   - `parseBelopp(text)` – gör om text till ett `double`. Kastar `InvalidTransactionException` om texten saknas (`null`) eller inte är ett tal, i stället för att låta `NumberFormatException` nå menyn.
-  - `validate(belopp, kategori)` – kastar `InvalidTransactionException` om beloppet är 0 eller negativt, eller om kategorin är tom.
+  - `validate(belopp, kategori)` – kastar `InvalidTransactionException` om beloppet är 0, negativt, `NaN` eller `Infinity`, eller om kategorin är tom.
 
   Valideringen ligger i en egen klass (i stället för i menyn) så att den kan testas med JUnit utan tangentbordsinmatning.
 - **`CliApp`** – menyn. Väljer typ och anropar sedan `parseBelopp` och `validate` i ett gemensamt `try/catch`. Vid fel skrivs validatorns meddelande ut med `e.getMessage()` och programmet fortsätter utan att krascha. Kategorin trimmas först efter valideringen, när den säkert inte är `null`.
@@ -83,13 +83,13 @@ src/
   - [x] gränsfall: `findWhere` på tomt repo
   - [x] `assertThrows` – resultatet från `findWhere` går inte att ändra
   - [x] generics + gränsvärden – `Repository<Integer>` med värden runt 100
-- [ ] `TransaktionValidatorTest` – 9 tester, `NaN`-testet återstår:
+- [x] `TransaktionValidatorTest` – 11 tester:
   - [x] `parseBelopp` normalfall – `" 100 "` blir `100` (parsning + trim)
   - [x] `parseBelopp` med `null` – ger `InvalidTransactionException`, inte `NullPointerException`
   - [x] `parseBelopp` med bokstäver – `assertThrows` + kontroll av felmeddelandet
   - [x] `validate` gränsvärden för belopp – `0` (på gränsen, kontroll av felmeddelandet), `-5`, och `0.01` (minsta giltiga, `assertDoesNotThrow`)
   - [x] `validate` kategori – tom (kontroll av felmeddelandet), bara mellanslag, `null`
-  - [ ] `NaN`/`Infinity` som belopp (förväntas faila först – kandidat till dokumenterad bugg)
+  - [x] `NaN`/`Infinity` som belopp – avslöjade en bugg som nu är åtgärdad (se *Felsökning* nedan)
 - [ ] Testklass för sammanställnings-/beräkningslogiken
 - [ ] Tester för fil-I/O (läsa/skriva, trasig rad)
 
@@ -98,15 +98,98 @@ src/
 - [ ] Loggning med flera nivåer – DEBUG/INFO/WARNING/ERROR – konsekvent i hela appen (VG)
 
 ### Dokumentation
-- [ ] Minst en dokumenterad bugg (se nedan)
+- [x] Minst en dokumenterad bugg (se nedan)
 - [ ] Reflektion kring generics och Stream API (VG)
 
 ## Felsökning – dokumenterad bugg
 
-*Kommer att fyllas i.* Beskriver:
-1. **Upptäckt** – hur buggen hittades (failande test, debugger, loggutskrift).
-2. **Felsökning** – breakpoints, stegning, loggar.
-3. **Åtgärd** – vad som ändrades och hur det verifierades med tester.
+### Bugg: `NaN` och `Infinity` godkändes som belopp
+
+**Symptom:** Om användaren skrev `NaN` eller `Infinity` som belopp (eller ett jättestort tal som `1e400`)
+skapades en transaktion utan felmeddelande:
+
+```
+Ange belopp: NaN
+Ange kategori: Mat
+Transaktionen har skapats: Transaktion[datum=2026-10-02, kategori=Mat, belopp=NaN, typ=UTGIFT]
+```
+
+Ett sådant belopp förstör alla senare beräkningar – t.ex. blir `25000 + NaN = NaN`, så hela saldot blir `NaN`.
+
+#### 1. Upptäckt – failande test
+I `TransaktionValidatorTest` skrevs två tester som förväntar sig att `validate` ska kasta
+`InvalidTransactionException` för ogiltiga belopp:
+
+```java
+assertThrows(InvalidTransactionException.class,
+        () -> TransaktionValidator.validate(Double.NaN, "Mat"));
+assertThrows(InvalidTransactionException.class,
+        () -> TransaktionValidator.validate(Double.POSITIVE_INFINITY, "Mat"));
+```
+
+Båda testerna blev röda:
+
+```
+testValidate_beloppNaN        Expected InvalidTransactionException to be thrown, but nothing was thrown.
+testValidate_beloppOandligt   Expected InvalidTransactionException to be thrown, but nothing was thrown.
+```
+
+#### 2. Felsökning – debugger
+- Breakpoint sattes på raden `if (belopp <= 0)` i `TransaktionValidator.validate`.
+- `testValidate_beloppNaN` kördes i **Debug**-läge. I panelen *Variables* syntes `belopp = NaN`.
+- Med *Evaluate Expression* (Alt+F8) utvärderades `belopp <= 0` till **`false`**.
+- Stegning med *Step Over* (F8) visade att koden hoppade förbi `throw` och lämnade metoden utan undantag.
+
+**Orsak:**
+- `Double.parseDouble` godkänner texterna `"NaN"`, `"Infinity"` och `"-Infinity"`, och ett tal som är
+  för stort för en `double` (t.ex. `"1e400"`) blir `Infinity`. Felet fångas alltså inte av `NumberFormatException`.
+- `NaN` (Not a Number) ger **`false` i alla jämförelser** – även `NaN <= 0`, `NaN > 0` och till och med
+  `NaN == NaN`. Därför slank det igenom villkoret `belopp <= 0`.
+- `Infinity` är större än 0, så det klarade villkoret på riktigt – men ett oändligt belopp är ändå ogiltigt.
+
+#### 3. Åtgärd
+Villkoret i `TransaktionValidator.validate` kompletterades med `Double.isFinite`, som returnerar
+`false` för både `NaN` och `Infinity`:
+
+```java
+// Före
+if (belopp <= 0) {
+
+// Efter
+if (!Double.isFinite(belopp) || belopp <= 0) {
+```
+
+`NaN` kan inte fångas med en jämförelse som `belopp == Double.NaN` (den är alltid `false`),
+därför används metoden `Double.isFinite`.
+
+**Verifiering:**
+- `testValidate_beloppNaN` och `testValidate_beloppOandligt` blev gröna, och alla 20 tester går igenom (`mvn test`).
+- Appen kördes igen med `NaN` och `1e400` som belopp – båda avvisas nu med felmeddelandet
+  och ingen transaktion skapas:
+
+```
+Ange belopp: NaN
+Ange kategori: Mat
+Beloppet måste vara större än 0
+```
+
+**Programmet kraschar inte – men transaktionen skapas inte.**
+`validate` kastar `InvalidTransactionException`, som fångas i `CliApp`. Där skrivs felmeddelandet ut och
+`return` avbryter `skapaTransaktion()` innan `new Transaktion(...)` och `repository.add(...)` körs.
+Menyn visas sedan igen och användaren kan välja menyval 1 på nytt och ange ett giltigt belopp:
+
+```
+Ange belopp: NaN     → Beloppet måste vara större än 0
+Välj Menyalternativ: 1
+Ange belopp: 1e400   → Beloppet måste vara större än 0
+Välj Menyalternativ: 2 → Inga transaktioner att visa
+Välj Menyalternativ: e → Avslutar programmet
+```
+
+Testerna ligger kvar som **regressionstester** – om någon senare tar bort `isFinite`-kontrollen blir de röda igen.
+
+**Lärdom:** testa inte bara "vanliga" felaktiga värden (0, negativt, bokstäver) utan även
+specialvärden som datatypen själv tillåter – för `double` är det `NaN` och `Infinity`.
 
 ## Reflektion: generics och Stream API
 

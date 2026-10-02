@@ -80,4 +80,19 @@ public class TransaktionValidatorTest {
         assertThrows(InvalidTransactionException.class,
                 () -> TransaktionValidator.validate(100, null)); //null i kategori
     }
+
+    @Test
+    void testValidate_beloppNaN() {
+        //Act + Assert - NaN (Not a Number) är inget giltigt belopp
+        //Double.parseDouble("NaN") godkänner texten, så användaren kan skriva in det
+        assertThrows(InvalidTransactionException.class,
+                () -> TransaktionValidator.validate(Double.NaN, "Mat"));
+    }
+
+    @Test
+    void testValidate_beloppOandligt() {
+        //Act + Assert - Infinity är inget giltigt belopp
+        assertThrows(InvalidTransactionException.class,
+                () -> TransaktionValidator.validate(Double.POSITIVE_INFINITY, "Mat"));
+    }
 }
