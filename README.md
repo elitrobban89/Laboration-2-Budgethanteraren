@@ -27,6 +27,7 @@ Applikationen startas från `CliApp` (t.ex. via Run i IntelliJ).
 ```
 src/
 ├── main/java/
+│   ├── BudgetService.java                # Beräkningar: saldo (summa per kategori kommer)
 │   ├── CliApp.java                       # Meny och användarinteraktion
 │   ├── InvalidTransactionException.java  # Eget checked undantag för ogiltiga transaktioner
 │   ├── Repository.java                   # Generisk lagringsklass Repository<T>
@@ -52,7 +53,10 @@ src/
   - `validate(belopp, kategori)` – kastar `InvalidTransactionException` om beloppet är 0, negativt, `NaN` eller `Infinity`, eller om kategorin är tom.
 
   Valideringen ligger i en egen klass (i stället för i menyn) så att den kan testas med JUnit utan tangentbordsinmatning.
-- **`CliApp`** – menyn. Väljer typ och anropar sedan `parseBelopp` och `validate` i ett gemensamt `try/catch`. Vid fel skrivs validatorns meddelande ut med `e.getMessage()` och programmet fortsätter utan att krascha. Kategorin trimmas först efter valideringen, när den säkert inte är `null`.
+- **`BudgetService`** – räknar på transaktionerna i repot. Den läser inte från tangentbordet och skriver inte ut något, så den kan testas med JUnit.
+  - Repot skickas in via konstruktorn (`new BudgetService(repository)`), så att tjänsten räknar på samma repo som menyn lägger till transaktioner i – och så att tester kan skicka in ett eget repo.
+  - `saldo()` – inkomster minus utgifter med Stream API: `mapToDouble` gör varje inkomst till `+belopp` och varje utgift till `-belopp`, och `sum()` summerar. Beloppen sparas alltid positiva; det är typen (`INKOMST`/`UTGIFT`) som avgör tecknet. Inga transaktioner ger `0.0`.
+- **`CliApp`** – menyn. Väljer typ och anropar sedan `parseBelopp` och `validate` i ett gemensamt `try/catch`. Vid fel skrivs validatorns meddelande ut med `e.getMessage()` och programmet fortsätter utan att krascha. Kategorin trimmas först efter valideringen, när den säkert inte är `null`. Menyval 3 hämtar saldot från `BudgetService` och skriver ut det.
 
 ## Status
 
@@ -69,7 +73,9 @@ src/
 ### Meny / funktionalitet
 - [x] 1. Lägg till transaktion (med validering av indata)
 - [x] 2. Visa alla transaktioner
-- [ ] 3. Visa saldo och sammanställning per kategori (Stream: `groupingBy`/`summingDouble`)
+- [ ] 3. Visa saldo och sammanställning per kategori
+  - [x] Saldo (inkomster − utgifter) via `BudgetService.saldo()`
+  - [ ] Summa per kategori (Stream: `groupingBy`/`summingDouble`)
 - [ ] 4. Filtrera/sortera transaktioner (datumintervall, typ)
 - [ ] 5. Spara till fil (CSV, try-with-resources)
 - [ ] Läsa in transaktioner från fil vid start, hantera saknad/trasig fil utan krasch
@@ -90,7 +96,7 @@ src/
   - [x] `validate` gränsvärden för belopp – `0` (på gränsen, kontroll av felmeddelandet), `-5`, och `0.01` (minsta giltiga, `assertDoesNotThrow`)
   - [x] `validate` kategori – tom (kontroll av felmeddelandet), bara mellanslag, `null`
   - [x] `NaN`/`Infinity` som belopp – avslöjade en bugg som nu är åtgärdad (se *Felsökning* nedan)
-- [ ] Testklass för sammanställnings-/beräkningslogiken
+- [ ] `BudgetServiceTest` – tester för beräkningslogiken (saldo: inga transaktioner, bara inkomster, bara utgifter, blandat; summa per kategori)
 - [ ] Tester för fil-I/O (läsa/skriva, trasig rad)
 
 ### Loggning

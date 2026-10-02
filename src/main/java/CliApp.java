@@ -3,9 +3,10 @@ import java.time.LocalDate;
 public class CliApp {
 
     /**
-     * Skapa fält (variabel) för Repository<Transaktion>
+     * Repot där alla transaktioner lagras, och tjänsten som räknar på samma repo.
      */
     private static final Repository<Transaktion> repository = new Repository<>();
+    private static final BudgetService budgetService = new BudgetService(repository);
 
     static void main() {
         boolean running = true;
@@ -26,7 +27,7 @@ public class CliApp {
                     visaAllaTransaktioner();
                     break;
                 case "3":
-                    //metod
+                    visaSaldoochSammanstallning();
                     break;
                 case "4":
                     //metod
@@ -116,7 +117,15 @@ public class CliApp {
             }
         }
     }
-
+    /**
+     * Menyval 3 Visa saldo och sammanställning per kategori
+     *
+     */
+    private static void visaSaldoochSammanstallning() {
+        IO.println("--- 3. Visa saldo och sammanställning per kategori ---");
+        double saldo = budgetService.saldo();
+        IO.println("Saldo: " + saldo + " kr");
+        }
 
     public static void printMenu() {
         String menyText = """
