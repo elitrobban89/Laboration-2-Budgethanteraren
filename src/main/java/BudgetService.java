@@ -30,12 +30,12 @@ public class BudgetService {
     /**
      * Menyval 3
      * Summerar transaktionerna per kategori.
-     *
+     * Här använder vi groupingBy som skapar en HashMap åt oss. Nyckeln är kategori String värdet är summan double.
      * @return är en Map med kategori och summan av transaktionerna. Tom Map om det inte finns några transaktioner.
      */
     public Map<String, Double> summaPerKategori() {
         return repository.findAll().stream()
-                .collect(Collectors.groupingBy(t -> t.kategori(), //Gruppera efter kategori. Metoden läser fältet.
+                .collect(Collectors.groupingBy(t -> t.kategori(), //Interfacet med HashMap bakom. Gruppera efter kategori. Metoden läser fältet. Skapar en HashMap åt oss. Nyckeln är kategori String värdet är summan double.
                         Collectors.summingDouble(t -> t.belopp()))); //Summera beloppen för varje kategori
     }
 

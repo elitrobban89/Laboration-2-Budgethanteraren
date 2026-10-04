@@ -22,7 +22,7 @@ public class Repository<T> {
 
     /**
      * Man ska kunna hitta alla sparade objekt i samlingen.
-     *
+     * Vi lagrar objekten i en ArrayList.
      */
     public List<T> findAll() {
         return new ArrayList<>(items);
