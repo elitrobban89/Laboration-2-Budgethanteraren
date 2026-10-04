@@ -6,7 +6,7 @@ import java.util.stream.Collectors;
 
 /**
  * Räknar på transaktionerna i ett Repository: saldo och summa per kategori m.m.
- * Kan testas med Junit då den inte läser från tagentbordet.
+ * Kan testas med JUnit.
  */
 public class BudgetService {
     private final Repository<Transaktion> repository;
@@ -20,7 +20,7 @@ public class BudgetService {
      * Menyval 3
      * Räknar ut saldot. Alla inkomster minus alla utgifter.
      * Returnera 0 om det inte finns några transaktioner.
-     * Belopp sparas som rätt typ utan minustecknet om det ex är en utgift 842.5
+     * Belopp sparas alltid positivt t ex 842.5 och inte -842.5 för en utgift. Det är typen INKOMST/UTGIFT som avgör om beloppet ska plussas eller minusas.
      */
     public double saldo() {
         return repository.findAll().stream().mapToDouble(t -> t.typ() ==
@@ -31,11 +31,12 @@ public class BudgetService {
      * Menyval 3
      * Summerar transaktionerna per kategori.
      * Här använder vi groupingBy som skapar en HashMap åt oss. Nyckeln är kategori String värdet är summan double.
+     * Eftersom att det är en hashMap är ordningen som kategorierna skrivs ut i inte garanterad.
      * @return är en Map med kategori och summan av transaktionerna. Tom Map om det inte finns några transaktioner.
      */
     public Map<String, Double> summaPerKategori() {
         return repository.findAll().stream()
-                .collect(Collectors.groupingBy(t -> t.kategori(), //Interfacet med HashMap bakom. Gruppera efter kategori. Metoden läser fältet. Skapar en HashMap åt oss. Nyckeln är kategori String värdet är summan double.
+                .collect(Collectors.groupingBy(t -> t.kategori(), // Nyckeln är kategori (String)
                         Collectors.summingDouble(t -> t.belopp()))); //Summera beloppen för varje kategori
     }
 
@@ -62,7 +63,7 @@ public class BudgetService {
 
     /**
      * Hämtar alla transaktioner sorterade på datum äldst först.
-     * Vilken ordning de visas
+     * Påverkar inte ordningen på transaktionerna i repositoryt. Sorterar en kopia.
      *
      * @return ny lista med transaktioner sorterade på datum
      */

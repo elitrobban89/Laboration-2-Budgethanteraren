@@ -51,7 +51,7 @@ public class CliApp {
      * Menyval 1: Skapa transaktion med enum TransaktionTyp
      * Metoden används bara inom klassen
      * <p>
-     * Sedan lägg till transaktionen i samlingen.
+     * Sedan läggs transaktionen till i repositoryt.
      *
      */
     private static void skapaTransaktion() {
@@ -76,9 +76,7 @@ public class CliApp {
         double belopp;
         String kategori;
 
-        //CliApp använder TransaktionValidator (parseBelopp + validate) med try/catch. Alla felmeddelanden ligger i validatorn.
-        //Parsar och validerar belopp och kategori via TransaktionValidator
-        //Vi bytte ut if satserna för att använda TransaktionValidator.validate
+        //Validering sker i TransaktionValidator. Fel kastas som InvalidTransactionException och skrivs ut här.
 
         try {
             belopp = TransaktionValidator.parseBelopp(beloppStr);

@@ -1,6 +1,6 @@
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Predicate; //Behövs för filtrering på typ eller belopp
+import java.util.function.Predicate; //Behövs för filtrering på typ eller datum
 
 
 /**
