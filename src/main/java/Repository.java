@@ -4,8 +4,12 @@ import java.util.function.Predicate; //Behövs för filtrering på typ eller dat
 
 
 /**
+ * Repository<T> är generisk, så den kan lagra vilken typ som helst. Det visar jag i testet med Integer.
+ * Inuti använder den en ArrayList som collection.
+ * BudgetService använder en Map (HashMap) för att summera per kategori, och List för filtrering och sortering."
+ *
  * @param <T> typparameter (Generics).
- *            Den fungerar som en platshållare för vilken datatyp som helst.
+ * Fungerar som en platshållare för vilken datatyp som helst.
  */
 public class Repository<T> {
     private final List<T> items = new ArrayList<>();
@@ -23,6 +27,7 @@ public class Repository<T> {
     /**
      * Man ska kunna hitta alla sparade objekt i samlingen.
      * Vi lagrar objekten i en ArrayList.
+     * Returnerar en kopia av listan med alla sparade objekt. Så att ingen utanför klassen kan ändra på listan.
      */
     public List<T> findAll() {
         return new ArrayList<>(items);
