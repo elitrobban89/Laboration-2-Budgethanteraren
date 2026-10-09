@@ -39,7 +39,7 @@ src/
 └── test/java/
     ├── BudgetServiceTest.java            # Tester för beräkningarna i BudgetService
     ├── RepositoryTest.java               # Tester för Repository<T>
-    ├── TransaktionFilHanterareTest.java  # Tester för CSV-formatet och trasiga rader
+    ├── TransaktionFilHanterareTest.java  # Tester för CSV-formatet, spara/läsa fil och trasiga rader
     └── TransaktionValidatorTest.java     # Tester för TransaktionValidator
 ```
 
@@ -56,13 +56,19 @@ src/
   - `parseBelopp(text)` – gör om text till ett `double`. Kastar `InvalidTransactionException` om texten saknas (`null`) eller inte är ett tal, i stället för att låta `NumberFormatException` nå menyn.
   - `parseDatum(text)` – gör om text i formatet `ÅÅÅÅ-MM-DD` till ett `LocalDate` med `LocalDate.parse`. Fångar `DateTimeParseException` (t.ex. `abc`, `2026-13-45` eller fel format) och kastar `InvalidTransactionException` med ett svenskt meddelande – samma mönster som `parseBelopp`.
   - `validate(belopp, kategori)` – kastar `InvalidTransactionException` om beloppet är 0, negativt, `NaN` eller `Infinity`, eller om kategorin är tom.
+
+  Valideringen ligger i en egen klass (i stället för i menyn) så att den kan testas med JUnit utan tangentbordsinmatning.
 - **`FileFormatException`** – eget *checked* undantag för en trasig rad i CSV-filen. Checked med flit: kompilatorn tvingar inläsningen att fånga felet, så att en trasig rad kan loggas och hoppas över i stället för att krascha programmet.
 - **`TransaktionFilHanterare`** – översätter mellan transaktioner och rader i CSV-filen. Formatet följer fälten i recorden: `datum;kategori;belopp;typ`.
   - `tillCsvRad(t)` – bygger raden med strängkonkatenering. `String.format("%.2f")` används inte, eftersom svensk locale då skriver decimalkomma (`842,50`) som `Double.parseDouble` inte kan läsa tillbaka.
   - `franCsvRad(rad)` – delar raden med `split(";")`, kontrollerar att det är exakt 4 fält och parsar dem med `LocalDate.parse`, `Double.parseDouble` och `TransaktionTyp.valueOf`. Alla parsningsfel (`DateTimeParseException`, `IllegalArgumentException`) blir `FileFormatException`.
-  - Översättningen är skild från själva filläsningen, så att formatet kan testas utan att skapa filer.
-
-  Valideringen ligger i en egen klass (i stället för i menyn) så att den kan testas med JUnit utan tangentbordsinmatning.
+  - `spara(transaktioner, fil)` – skriver en CSV-rad per transaktion med `Files.newBufferedWriter` i **try-with-resources**, så att filen alltid stängs (även vid fel) och inget blir kvar i bufferten. Filen skrivs över. `IOException` skickas vidare till anroparen.
+  - `las(fil)` – läser filen rad för rad med `Files.newBufferedReader` i try-with-resources (`readLine()` ger `null` när filen är slut).
+    - **Saknas filen** skapas en ny tom fil med `Files.createFile` och en tom lista returneras – programmet kraschar inte vid första start.
+    - **Tomma rader** hoppas över (`isBlank()`).
+    - **Trasiga rader** hoppas över: `try/catch (FileFormatException)` ligger *inne i* loopen, så en trasig rad stoppar bara sig själv och läsningen fortsätter med nästa rad. Raden rapporteras med felmeddelandet från `FileFormatException`.
+  - Översättningen (`tillCsvRad`/`franCsvRad`) är skild från själva filläsningen, så att formatet kan testas utan att skapa filer.
+  - Filen skickas in som en `Path` till `spara` och `las` i stället för att stå i klassen. Därför kan appen använda `transaktioner.csv` medan testerna använder en tillfällig fil.
 - **`BudgetService`** – räknar på transaktionerna i repot. Den läser inte från tangentbordet och skriver inte ut något, så den kan testas med JUnit.
   - Repot skickas in via konstruktorn (`new BudgetService(repository)`), så att tjänsten räknar på samma repo som menyn lägger till transaktioner i – och så att tester kan skicka in ett eget repo.
   - `saldo()` – inkomster minus utgifter med Stream API: `mapToDouble` gör varje inkomst till `+belopp` och varje utgift till `-belopp`, och `sum()` summerar. Beloppen sparas alltid positiva; det är typen (`INKOMST`/`UTGIFT`) som avgör tecknet. Inga transaktioner ger `0.0`.
@@ -75,6 +81,10 @@ src/
   - Hjälpmetoden `skrivUt(List<Transaktion>)` skriver ut resultatet för alla filter, och visar "Inga transaktioner matchade filtret" om listan är tom. Null-kontrollen står först (`transaktioner == null || transaktioner.isEmpty()`) så att `isEmpty()` aldrig anropas på `null`.
   - Typvalet jämförs med `"1".equals(typVal)` i stället för `typVal.equals("1")`, så att `null` (t.ex. Ctrl+D) ger `false` i stället för en `NullPointerException`.
   - Datumfiltret läser in start- och slutdatum, parsar båda med `parseDatum` i ett gemensamt `try/catch`, och kontrollerar att startdatum inte är efter slutdatum innan `filtreraDatum` anropas. Allt som använder de parsade datumen ligger inne i `try`, eftersom variablerna bara finns i det blocket.
+  - **Fil:** sökvägen bestäms på ett ställe, konstanten `FIL = Path.of("transaktioner.csv")`.
+    - `lasFranFil()` anropas **en gång** i början av `main`, *före* menyloopen. Transaktionerna från filen läggs in i repot med `add`, så menyval 2–4 ser dem direkt.
+    - `sparaTillFil()` (menyval 5) sparar `repository.findAll()` till filen. Samma metod anropas också vid `e`, så att inget försvinner om användaren glömmer att spara.
+    - Båda fångar `IOException` och skriver ut ett meddelande, så ett filfel kraschar inte programmet.
 
 Exempel på menyval 4 (datum):
 ```
@@ -85,6 +95,25 @@ Startdatum kan inte vara efter slutdatum
 Ange startdatum (ÅÅÅÅ-MM-DD): abc
 Ange slutdatum (ÅÅÅÅ-MM-DD): x
 Felaktigt datum! Ange datum som ÅÅÅÅ-MM-DD, t.ex. 2026-10-01
+```
+
+Exempel på fil-I/O (tre starter efter varandra):
+```
+# Första start – filen saknas och skapas
+0 transaktioner lästes in från transaktioner.csv
+...lägger till Lön 25000 och Mat 842.5, väljer e...
+Transaktionerna sparades till fil: transaktioner.csv
+
+# transaktioner.csv
+2026-10-09;Lön;25000.0;INKOMST
+2026-10-09;Mat;842.5;UTGIFT
+
+# Andra start
+2 transaktioner lästes in från transaktioner.csv
+
+# Tredje start – raden "hej hopp" har lagts till i filen för hand
+Fel vid läsning av filen: Felaktig rad i filen: hej hopp
+2 transaktioner lästes in från transaktioner.csv
 ```
 
 Exempel på menyval 3:
@@ -110,6 +139,7 @@ Lön: 25000.0 kr
 - [x] `CliApp` använder `TransaktionValidator` med `try/catch`
 - [x] `FileFormatException` (checked) för trasiga rader i filen
 - [x] `TransaktionFilHanterare.tillCsvRad` / `franCsvRad` – transaktion ↔ CSV-rad
+- [x] `TransaktionFilHanterare.spara` / `las` – BufferedWriter/BufferedReader i try-with-resources
 
 ### Meny / funktionalitet
 - [x] 1. Lägg till transaktion (med validering av indata)
@@ -124,9 +154,9 @@ Lön: 25000.0 kr
   - [x] Filtrering på typ kopplad till menyval 4
   - [x] Filtrering på datum kopplad till menyval 4 (inmatning med `parseDatum`, felaktigt datum och bakvänt intervall hanteras utan krasch)
   - [x] Sortering: `BudgetService.sorteraPaDatum()` med `Comparator`, val 3 i undermenyn
-- [ ] 5. Spara till fil (CSV, try-with-resources)
-- [ ] Läsa in transaktioner från fil vid start, hantera saknad/trasig fil utan krasch
-- [x] e. Avsluta
+- [x] 5. Spara till fil (CSV, try-with-resources)
+- [x] Läsa in transaktioner från fil vid start, hantera saknad/trasig fil utan krasch
+- [x] e. Avsluta (sparar till fil först)
 
 ### Tester (JUnit 5, Arrange-Act-Assert)
 - [x] `RepositoryTest` – 9 tester:
@@ -152,14 +182,18 @@ Lön: 25000.0 kr
   - [x] `filtreraDatum()` gränsvärden – en transaktion på varje gränsdag, en i mitten och en precis utanför på var sida; 3 av 5 ska med. Avslöjade en bugg (se *Felsökning* nedan)
   - [x] `sorteraPaDatum()` – transaktionerna läggs till i oordning; alla tre finns kvar (`size() == 3`) och ligger i datumordning (`get(0)`, `get(1)`, `get(2)`)
 
-- [x] `TransaktionFilHanterareTest` – 4 tester (utan riktiga filer):
+- [x] `TransaktionFilHanterareTest` – 7 tester:
   - [x] `tillCsvRad()` – en transaktion blir `2022-01-01;Kategori;100.0;UTGIFT`
   - [x] `franCsvRad()` normalfall – en hel rad blir rätt `Transaktion` (record-`equals` jämför alla fält)
   - [x] `franCsvRad()` fel antal fält – `assertThrows(FileFormatException.class, ...)`
   - [x] `franCsvRad()` belopp `abc` – `assertThrows`; avslöjade en bugg (se *Felsökning* nedan)
+  - [x] `spara()` + `las()` – två transaktioner sparas och läses tillbaka oförändrade, i samma ordning (även `Lön` med ö)
+  - [x] `las()` gränsfall: filen saknas – tom lista **och** filen har skapats (`Files.exists`)
+  - [x] `las()` trasig rad mitt i filen – hoppas över; raderna före och efter kommer med (`size() == 2`, `get(0)`, `get(1)`)
 
-Totalt **31 tester**, alla gröna (`mvn test`). Varje central komponent – `Repository<T>`, `TransaktionValidator`, `BudgetService` och `TransaktionFilHanterare` – har en egen testklass med normalfall, gränsfall och (där det är rimligt) `assertThrows` för egna undantag.
-- [ ] Tester för att spara/läsa en riktig fil (saknad fil, trasig rad hoppas över)
+  Filtesterna använder JUnits **`@TempDir`**: varje test får en ny tillfällig mapp som raderas efteråt, så testerna rör aldrig den riktiga `transaktioner.csv` och lämnar inga filer efter sig. Innehållet i den trasiga filen skrivs direkt i testet med `Files.writeString` och ett textblock (`"""`).
+
+Totalt **34 tester**, alla gröna (`mvn test`). Varje central komponent – `Repository<T>`, `TransaktionValidator`, `BudgetService` och `TransaktionFilHanterare` – har en egen testklass med normalfall, gränsfall och (där det är rimligt) `assertThrows` för egna undantag.
 
 ### Loggning
 - [ ] Loggning vid felaktig indata och filfel (G)

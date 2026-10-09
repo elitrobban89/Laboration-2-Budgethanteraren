@@ -7,6 +7,7 @@ import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.io.BufferedReader;
 import java.util.ArrayList;
+import java.util.logging.Logger;
 
 /**
  * Har skapat TransaktionFilHanterare för att hantera transaktioner från filer.
@@ -14,6 +15,7 @@ import java.util.ArrayList;
  * Iom att vår record ser ut så bör vi ha filformatet: (datum; kategori; belopp; typ) så att det blir samma ordning i utdatafilen.
  */
 public class TransaktionFilHanterare {
+    private static final Logger logger = Logger.getLogger(TransaktionFilHanterare.class.getName()); //Skapa loggerobjekt
 
     /**
      * Metod för att omvandla en transaktion till en rad i CSV format. Men ingenting skrivs till disk.
@@ -71,11 +73,11 @@ public class TransaktionFilHanterare {
         try (BufferedReader reader = Files.newBufferedReader(fil)) {
             String rad;
             while ((rad = reader.readLine()) != null) {
-                if(!rad.isBlank()) {
-                    try{
+                if (!rad.isBlank()) {
+                    try {
                         transaktioner.add(franCsvRad(rad));
                     } catch (FileFormatException e) {
-                        IO.println("Fel vid läsning av filen: " + e.getMessage());
+                        logger.warning("Hoppar över trasig rad: " + e.getMessage()); //Loggern är till för utvecklaren ersatte IO.println. CliApp pratar med användaren.
                     }
                 }
             }
