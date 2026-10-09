@@ -65,9 +65,17 @@ public class TransaktionFilHanterare {
         }
     }
 
+    /**
+     * Metod för att läsa in transaktioner från en fil i CSV-format.
+     * Saknas filen skapas en ny tom fil. Tomma och trasiga rader hoppas över.
+     *
+     * @param fil Filen som transaktionerna ska läsas från.
+     * @return Lista med transaktionerna i filen, tom lista om filen saknas eller är tom.
+     * @throws IOException Om filen inte går att skapa eller läsa, t.ex. fel teckenkodning (bugg 4).
+     */
     public List<Transaktion> las(Path fil) throws IOException {
         List<Transaktion> transaktioner = new ArrayList<>();
-        if (!Files.exists(fil)) { //Om inte filen finns så ska den skapas sen hoppa ur snurran utan att krascha programmet
+        if (!Files.exists(fil)) { //Om inte filen finns så ska den skapas, och en tom lista returneras direkt utan att programmet kraschar
             Files.createFile(fil);
             return transaktioner;
         }

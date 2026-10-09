@@ -69,7 +69,7 @@ public class CliApp {
      */
     private static void skapaTransaktion() {
         IO.println("--- 1. Lägg till transaktion ---");
-        String typVal = IO.readln("Välj 1 för INKOMST, 2 för UTGIFT): ");
+        String typVal = IO.readln("Välj 1 för INKOMST, 2 för UTGIFT: ");
 
         if (typVal == null) {
             return;
@@ -157,12 +157,12 @@ public class CliApp {
     }
 
     /**
-     * Menyval 4 Filtrera på datum eller typ
+     * Menyval 4 Filtrera på datum eller typ, eller visa alla sorterade på datum
      *
      */
     private static void filtreraTransaktioner() {
         IO.println("--- 4.Filtrera transaktioner ---");
-        String val = IO.readln("Välj filtrering: \n1. Datum\n2. Typ\n3 Alla, sorterade på datum\nVälj: ");
+        String val = IO.readln("Välj filtrering: \n1. Datum\n2. Typ\n3. Alla, sorterade på datum\nVälj: ");
         if (val == null) {
             IO.println("Ogiltigt val");
             return;
@@ -185,6 +185,9 @@ public class CliApp {
      */
     private static void visaFiltreratPaTyp() {
         String typVal = IO.readln("Välj 1 för INKOMST, 2 för UTGIFT: ");
+        if (typVal != null) {
+            typVal = typVal.trim(); //Tar bort mellanslag så att t.ex. " 1" räknas som 1 i typfiltret
+        }
         TransaktionTyp typ;
         if ("1".equals(typVal)) {
             typ = TransaktionTyp.INKOMST;
@@ -229,7 +232,8 @@ public class CliApp {
     }
 
     /**
-     * Menyval 5 Spara till fil
+     * Menyval 5 Spara till fil. Anropas också vid avslut (e) och om inmatningen avbryts (Ctrl+D).
+     * Om filen inte kunde läsas in vid start sparas ingenting, så att filen inte skrivs över (bugg 4).
      * Om det misslyckas skrivs ett felmeddelande ut
      */
     private static void sparaTillFil() {
@@ -249,8 +253,10 @@ public class CliApp {
     }
 
     /**
-     * Metod för att starta loggning
-     * Loggning: Om filen inte kan läsas in skrivs ett meddelande till loggfilen. Läser in loggkonfiguration från logging.properties
+     * Metod för att starta loggning. Läser in loggkonfigurationen från src/main/resources/logging.properties,
+     * så att alla nivåer hamnar i budget.log och bara WARNING och SEVERE visas i konsolen.
+     * Om konfigurationen inte kan läsas in fortsätter programmet med Javas standardloggning,
+     * och felet skrivs då ut i konsolen (det finns ingen loggfil än).
      */
     private static void startaLoggning() {
         try (InputStream in = CliApp.class.getResourceAsStream("/logging.properties")) {

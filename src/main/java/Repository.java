@@ -6,7 +6,7 @@ import java.util.function.Predicate; //Behövs för filtrering på typ eller dat
 /**
  * Repository<T> är generisk, så den kan lagra vilken typ som helst. Det visar jag i testet med Integer.
  * Inuti använder den en ArrayList som collection.
- * BudgetService använder en Map (HashMap) för att summera per kategori, och List för filtrering och sortering."
+ * BudgetService använder en Map (HashMap) för att summera per kategori, och List för filtrering och sortering.
  *
  * @param <T> typparameter (Generics).
  * Fungerar som en platshållare för vilken datatyp som helst.

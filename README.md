@@ -90,7 +90,7 @@ src/
 - **`CliApp`** – menyn. Väljer typ och anropar sedan `parseBelopp` och `validate` i ett gemensamt `try/catch`. Vid fel skrivs validatorns meddelande ut med `e.getMessage()` och programmet fortsätter utan att krascha. Kategorin trimmas först efter valideringen, när den säkert inte är `null`. Menyval 3 hämtar saldot och summan per kategori från `BudgetService` och skriver ut dem; finns inga transaktioner visas ett meddelande i stället för en tom lista.
   - Menyval 4 visar en undermeny (`1. Datum`, `2. Typ`, `3. Alla, sorterade på datum`). Varje filter har en egen liten metod i `CliApp` (`visaFiltreratPaTyp`, `visaFiltreratPaDatum`) som frågar användaren och sedan anropar motsvarande metod i `BudgetService`. Namnen skiljer sig från `BudgetService`-metoderna med flit: `CliApp` *frågar och visar*, `BudgetService` *räknar*.
   - Hjälpmetoden `skrivUt(List<Transaktion>)` skriver ut resultatet för alla filter, och visar "Inga transaktioner matchade filtret" om listan är tom. Null-kontrollen står först (`transaktioner == null || transaktioner.isEmpty()`) så att `isEmpty()` aldrig anropas på `null`.
-  - Typvalet i filtret jämförs med `"1".equals(typVal)` i stället för `typVal.equals("1")`, så att `null` (t.ex. Ctrl+D) ger `false` i stället för en `NullPointerException`.
+  - Typvalet i filtret jämförs med `"1".equals(typVal)` i stället för `typVal.equals("1")`, så att `null` (t.ex. Ctrl+D) ger `false` i stället för en `NullPointerException`. Det trimmas bara om det inte är `null`.
   - Alla menyval (huvudmeny, typval och filtermeny) trimmas efter null-kontrollen, så att t.ex. `" 1 "` räknas som `1`.
   - Om inmatningen avbryts i huvudmenyn (Ctrl+D, `readln` ger `null`) sparas transaktionerna till filen innan programmet avslutas – precis som vid `e` – så att inget försvinner.
   - Datumfiltret läser in start- och slutdatum, parsar båda med `parseDatum` i ett gemensamt `try/catch`, och kontrollerar att startdatum inte är efter slutdatum innan `filtreraDatum` anropas. Allt som använder de parsade datumen ligger inne i `try`, eftersom variablerna bara finns i det blocket.
@@ -126,7 +126,7 @@ Transaktionerna sparades till fil: transaktioner.csv
 2 transaktioner lästes in från transaktioner.csv
 
 # Tredje start – raden "hej hopp" har lagts till i filen för hand
-Fel vid läsning av filen: Felaktig rad i filen: hej hopp
+2026-10-09 15:00:34 WARNING [TransaktionFilHanterare] Hoppar över trasig rad: Felaktig rad i filen: hej hopp
 2 transaktioner lästes in från transaktioner.csv
 ```
 
@@ -151,7 +151,7 @@ private static final Logger logger = Logger.getLogger(CliApp.class.getName());
 
 **Två mottagare, två verktyg:**
 - `IO.println` är till för **användaren** – vad som hände och vad hen ska göra annorlunda.
-- `logger` är till för **utvecklaren** – varje loggrad får automatiskt tidsstämpel, nivå och vilken klass och metod den kom från, vilket gör den användbar vid felsökning.
+- `logger` är till för **utvecklaren** – varje loggrad får automatiskt tidsstämpel, nivå och vilken klass den kom från, vilket gör den användbar vid felsökning.
 
 Därför loggar `TransaktionFilHanterare` (en filklass) i stället för att skriva till användaren – det är `CliApp` som pratar med användaren.
 
@@ -206,7 +206,7 @@ Exempel från en körning – en trasig rad i filen, belopp `abc`, filter på ty
 2026-10-09 15:00:34 FINE    [TransaktionFilHanterare] Läste rad: 2026-10-03;Mat;842.5;UTGIFT
 2026-10-09 15:00:34 INFO    [CliApp] Läste in 2 transaktioner från transaktioner.csv
 2026-10-09 15:00:34 WARNING [CliApp] Ogiltig transaktion: Felaktigt format på belopp!
-2026-10-09 15:00:34 FINE    [BudgetService] filtreraTyp( UTGIFT) gav 1 transaktioner
+2026-10-09 15:00:34 FINE    [BudgetService] filtreraTyp(UTGIFT) gav 1 transaktioner
 2026-10-09 15:00:34 FINE    [BudgetService] filtreraDatum(2026-10-01 – 2026-10-31) gav 2 transaktioner
 2026-10-09 15:00:34 FINE    [TransaktionFilHanterare] Skrev rad: 2026-10-01;Lön;25000.0;INKOMST
 2026-10-09 15:00:34 FINE    [TransaktionFilHanterare] Skrev rad: 2026-10-03;Mat;842.5;UTGIFT
@@ -240,7 +240,7 @@ exakt vad som skrevs tillbaka. `SEVERE` syns inte här eftersom inget allvarligt
 - [x] 4. Filtrera/sortera transaktioner (datumintervall, typ, sortering på datum)
   - [x] `BudgetService.filtreraTyp()` via `findWhere`
   - [x] `BudgetService.filtreraDatum()` via `findWhere` (gränsdagar räknas med)
-  - [x] Undermeny i `CliApp` (`1. Datum`, `2. Typ`) och hjälpmetoden `skrivUt` med tomt fall
+  - [x] Undermeny i `CliApp` (`1. Datum`, `2. Typ`, `3. Alla, sorterade på datum`) och hjälpmetoden `skrivUt` med tomt fall
   - [x] Filtrering på typ kopplad till menyval 4
   - [x] Filtrering på datum kopplad till menyval 4 (inmatning med `parseDatum`, felaktigt datum och bakvänt intervall hanteras utan krasch)
   - [x] Sortering: `BudgetService.sorteraPaDatum()` med `Comparator`, val 3 i undermenyn
@@ -804,8 +804,8 @@ sorteringsalgoritm eller `Collections.sort` på en kopia.
 - **Lättare att testa.** Eftersom metoderna bara tar in data och returnerar ett resultat (de ändrar inte repot)
   kunde varje metod testas med ett eget repo i Arrange och en `assertEquals` i Assert.
 - **Generics och streams samverkar.** `findWhere(Predicate<T>)` i `Repository<T>` använder själv `stream().filter(...)`.
-  `BudgetService` skickar bara in villkoret, t.ex. `t -> t.typ() == typ`. Både typfiltret och datumfiltret blev därför
-  en rad var, utan någon ny metod i `Repository`.
+  `BudgetService` skickar bara in villkoret, t.ex. `t -> t.typ() == typ`. Själva filtreringen i både typfiltret och
+  datumfiltret blev därför en rad var, utan någon ny metod i `Repository`.
 
 **Men det har också en baksida**, och den märkte vi i felsökningen. När datumfiltret missade gränsdagarna (*Bugg 2*)
 gick det inte att sätta en vanlig breakpoint och stega genom en loop, eftersom loopen sker inne i streamen.
@@ -813,9 +813,9 @@ Vi fick använda en **lambdabreakpoint** och **watches** i stället för att se 
 kortare att läsa, men kräver att man vet hur man felsöker dem. Därför loggar `BudgetService` nu också hur många
 träffar varje filter ger (`FINE`) – då syns ett felaktigt resultat i `budget.log` utan att man behöver debuggern.
 
-Nackdelen är att mer sker "bakom kulisserna". Med arrayer i Laboration 1 såg man exakt
-vad som hände i varje steg, och det gav en bra förståelse för vad `ArrayList` och
-streams faktiskt gör åt en.
+Mer sker alltså "bakom kulisserna". Samtidigt var det nyttigt att ha gjort det med arrayer och loopar i
+Laboration 1 först: där såg man exakt vad som hände i varje steg, och det gav en bra förståelse för vad
+`ArrayList` och streams faktiskt gör åt en.
 
 ## Visualisering från Plan mode i Claude
 

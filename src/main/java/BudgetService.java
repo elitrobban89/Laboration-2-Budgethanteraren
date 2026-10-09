@@ -50,7 +50,7 @@ public class BudgetService {
      */
     public List<Transaktion> filtreraTyp(TransaktionTyp typ) {
         List<Transaktion> resultat = repository.findWhere(t -> t.typ() == typ); //Använder findWhere-metoden i Repository
-        logger.fine("filtreraTyp( " + typ + ") gav " + resultat.size() + " transaktioner"); //Loggar antal transaktioner som filtreras
+        logger.fine("filtreraTyp(" + typ + ") gav " + resultat.size() + " transaktioner"); //Loggar antal transaktioner som filtreras
         return resultat;
     }
 
@@ -63,7 +63,7 @@ public class BudgetService {
      */
     public List<Transaktion> filtreraDatum(LocalDate start, LocalDate slut) { //Vilka transaktioner som ska visas
         List<Transaktion> resultat = repository.findWhere(t -> !t.datum().isBefore(start) && !t.datum().isAfter(slut)); //Åtgärd av bugg 2: gränsdagarna ska räknas med
-        logger.fine("filtreraDatum(" + start + " – " + slut + ") gav " + resultat.size() + " transaktioner"); //Åtgärd av bugg om datumet är gränsdagen ska vi få med transaktionen i filtret
+        logger.fine("filtreraDatum(" + start + " – " + slut + ") gav " + resultat.size() + " transaktioner"); //Loggar intervallet och antal transaktioner som filtrerades fram
         return resultat;
     }
 

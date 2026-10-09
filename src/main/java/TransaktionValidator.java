@@ -41,8 +41,9 @@ public class TransaktionValidator {
      * Kontrollerar att en transaktions belopp och kategori är giltiga.
      *
      * @param belopp   beloppet, måste vara större än 0
-     * @param kategori kategorin, får inte vara null eller tom
-     * @throws InvalidTransactionException om beloppet är 0 eller negativt, eller om kategorin är tom
+     * @param kategori kategorin, får inte vara null, tom eller innehålla semikolon
+     * @throws InvalidTransactionException om beloppet är 0, negativt, NaN eller Infinity,
+     *                                     om kategorin är tom, eller om kategorin innehåller semikolon (bugg 6)
      */
     public static void validate(double belopp, String kategori) throws InvalidTransactionException {
         if (!Double.isFinite(belopp) || belopp <= 0) { //Stoppar NaN och Infinity tal.
