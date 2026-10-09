@@ -11,17 +11,19 @@ public class TransaktionFilHanterare {
     /**
      * Metod för att omvandla en transaktion till en rad i CSV format. Men ingenting skrivs till disk.
      * Vi delar upp stegen för att testerna ska fungera.
-     */ public String tillCsvRad(Transaktion t) {
-         return t.datum() + ";" + t.kategori() + ";" + t.belopp() + ";" + t.typ();
+     */
+    public String tillCsvRad(Transaktion t) {
+        return t.datum() + ";" + t.kategori() + ";" + t.belopp() + ";" + t.typ();
     }
 
     /**
      * Metod för att omvandla en rad i CSV format till en transaktion.
      * Vi delar upp stegen för att testerna ska fungera.
-     */ public Transaktion franCsvRad(String rad) throws FileFormatException {
+     */
+    public Transaktion franCsvRad(String rad) throws FileFormatException {
         String[] delar = rad.split(";");
 
-        if (delar.length !=4) {
+        if (delar.length != 4) {
             throw new FileFormatException("Felaktig rad i filen: " + rad);
         }
 
@@ -29,10 +31,9 @@ public class TransaktionFilHanterare {
             LocalDate datum = LocalDate.parse(delar[0]);
             String kategori = delar[1];
             double belopp = Double.parseDouble(delar[2]);
-            TransaktionTyp typ= TransaktionTyp.valueOf(delar[3]);
+            TransaktionTyp typ = TransaktionTyp.valueOf(delar[3]);
             return new Transaktion(datum, kategori, belopp, typ);
-        }
-        catch (DateTimeParseException e) {
+        } catch (DateTimeParseException e) {
             throw new FileFormatException("Felaktig rad i filen: " + rad);
         }
     }
