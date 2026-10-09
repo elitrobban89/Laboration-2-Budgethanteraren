@@ -3,6 +3,7 @@ import java.nio.file.Path;
 import java.time.LocalDate;
 import java.util.Map;
 import java.util.List;
+import java.util.logging.Logger;
 
 public class CliApp {
 
@@ -13,6 +14,7 @@ public class CliApp {
     private static final BudgetService budgetService = new BudgetService(repository);
     private static final Path FIL = Path.of("transaktioner.csv"); //Spara till en fil med defaultnamnet
     private static final TransaktionFilHanterare filHanterare = new TransaktionFilHanterare();
+    private static final Logger logger = Logger.getLogger(CliApp.class.getName());
 
     static void main() {
         boolean running = true;
@@ -90,6 +92,7 @@ public class CliApp {
             TransaktionValidator.validate(belopp, kategori);
         } catch (InvalidTransactionException e) {
             IO.println(e.getMessage());
+            logger.warning("Ogiltig transaktion: " + e.getMessage());
             return;
         }
         kategori = kategori.trim();
@@ -197,11 +200,13 @@ public class CliApp {
             LocalDate slutDatum = TransaktionValidator.parseDatum(slutDatumText);
             if (startDatum.isAfter(slutDatum)) {
                 IO.println("Startdatum kan inte vara efter slutdatum");
+                logger.warning("Ogiltigt datumintervall: Startdatum efter slutdatum: " + startDatum +" är efter " + slutDatum);
                 return;
             }
             skrivUt(budgetService.filtreraDatum(startDatum, slutDatum));
         } catch (InvalidTransactionException e) {
             IO.println(e.getMessage());
+            logger.warning("Ogiltigt datumintervall: " + e.getMessage());
         }
     }
 
