@@ -8,7 +8,7 @@ Uppgiften examinerar främst **läranderesultat 7**: enhetstester med JUnit 5, f
 
 - Java 27
 - Maven
-- JUnit 5 (Jupiter)
+- JUnit 6 (Jupiter, 6.1.3) – samma API som JUnit 5, så testerna skrivs på samma sätt
 
 ## Köra projektet
 
@@ -29,15 +29,18 @@ src/
 ├── main/java/
 │   ├── BudgetService.java                # Beräkningar: saldo, summa per kategori, filtrering, sortering
 │   ├── CliApp.java                       # Meny och användarinteraktion
+│   ├── FileFormatException.java          # Eget checked undantag för trasiga rader i CSV-filen
 │   ├── InvalidTransactionException.java  # Eget checked undantag för ogiltiga transaktioner
 │   ├── Repository.java                   # Generisk lagringsklass Repository<T>
 │   ├── Transaktion.java                  # record: datum, kategori, belopp, typ
+│   ├── TransaktionFilHanterare.java      # Översätter transaktion ↔ CSV-rad (läser/sparar fil)
 │   ├── TransaktionTyp.java               # enum: INKOMST, UTGIFT
 │   └── TransaktionValidator.java         # Parsar och validerar belopp och kategori
 └── test/java/
-    ├── BudgetServiceTest.java         # JUnit 5-tester för beräkningarna i BudgetService
-    ├── RepositoryTest.java            # JUnit 5-tester för Repository<T>
-    └── TransaktionValidatorTest.java  # JUnit 5-tester för TransaktionValidator
+    ├── BudgetServiceTest.java            # Tester för beräkningarna i BudgetService
+    ├── RepositoryTest.java               # Tester för Repository<T>
+    ├── TransaktionFilHanterareTest.java  # Tester för CSV-formatet och trasiga rader
+    └── TransaktionValidatorTest.java     # Tester för TransaktionValidator
 ```
 
 ## Lösningens uppbyggnad
@@ -53,6 +56,11 @@ src/
   - `parseBelopp(text)` – gör om text till ett `double`. Kastar `InvalidTransactionException` om texten saknas (`null`) eller inte är ett tal, i stället för att låta `NumberFormatException` nå menyn.
   - `parseDatum(text)` – gör om text i formatet `ÅÅÅÅ-MM-DD` till ett `LocalDate` med `LocalDate.parse`. Fångar `DateTimeParseException` (t.ex. `abc`, `2026-13-45` eller fel format) och kastar `InvalidTransactionException` med ett svenskt meddelande – samma mönster som `parseBelopp`.
   - `validate(belopp, kategori)` – kastar `InvalidTransactionException` om beloppet är 0, negativt, `NaN` eller `Infinity`, eller om kategorin är tom.
+- **`FileFormatException`** – eget *checked* undantag för en trasig rad i CSV-filen. Checked med flit: kompilatorn tvingar inläsningen att fånga felet, så att en trasig rad kan loggas och hoppas över i stället för att krascha programmet.
+- **`TransaktionFilHanterare`** – översätter mellan transaktioner och rader i CSV-filen. Formatet följer fälten i recorden: `datum;kategori;belopp;typ`.
+  - `tillCsvRad(t)` – bygger raden med strängkonkatenering. `String.format("%.2f")` används inte, eftersom svensk locale då skriver decimalkomma (`842,50`) som `Double.parseDouble` inte kan läsa tillbaka.
+  - `franCsvRad(rad)` – delar raden med `split(";")`, kontrollerar att det är exakt 4 fält och parsar dem med `LocalDate.parse`, `Double.parseDouble` och `TransaktionTyp.valueOf`. Alla parsningsfel (`DateTimeParseException`, `IllegalArgumentException`) blir `FileFormatException`.
+  - Översättningen är skild från själva filläsningen, så att formatet kan testas utan att skapa filer.
 
   Valideringen ligger i en egen klass (i stället för i menyn) så att den kan testas med JUnit utan tangentbordsinmatning.
 - **`BudgetService`** – räknar på transaktionerna i repot. Den läser inte från tangentbordet och skriver inte ut något, så den kan testas med JUnit.
@@ -100,7 +108,8 @@ Lön: 25000.0 kr
 - [x] `TransaktionValidator.parseBelopp` – felaktigt format ger `InvalidTransactionException`
 - [x] `TransaktionValidator.parseDatum` – felaktigt datum ger `InvalidTransactionException`
 - [x] `CliApp` använder `TransaktionValidator` med `try/catch`
-- [ ] `FileFormatException` för trasiga rader i filen
+- [x] `FileFormatException` (checked) för trasiga rader i filen
+- [x] `TransaktionFilHanterare.tillCsvRad` / `franCsvRad` – transaktion ↔ CSV-rad
 
 ### Meny / funktionalitet
 - [x] 1. Lägg till transaktion (med validering av indata)
@@ -143,15 +152,21 @@ Lön: 25000.0 kr
   - [x] `filtreraDatum()` gränsvärden – en transaktion på varje gränsdag, en i mitten och en precis utanför på var sida; 3 av 5 ska med. Avslöjade en bugg (se *Felsökning* nedan)
   - [x] `sorteraPaDatum()` – transaktionerna läggs till i oordning; alla tre finns kvar (`size() == 3`) och ligger i datumordning (`get(0)`, `get(1)`, `get(2)`)
 
-Totalt **27 tester**, alla gröna (`mvn test`). Varje central komponent – `Repository<T>`, `TransaktionValidator` och `BudgetService` – har en egen testklass med normalfall, gränsfall och (där det är rimligt) `assertThrows` för egna undantag.
-- [ ] Tester för fil-I/O (läsa/skriva, trasig rad)
+- [x] `TransaktionFilHanterareTest` – 4 tester (utan riktiga filer):
+  - [x] `tillCsvRad()` – en transaktion blir `2022-01-01;Kategori;100.0;UTGIFT`
+  - [x] `franCsvRad()` normalfall – en hel rad blir rätt `Transaktion` (record-`equals` jämför alla fält)
+  - [x] `franCsvRad()` fel antal fält – `assertThrows(FileFormatException.class, ...)`
+  - [x] `franCsvRad()` belopp `abc` – `assertThrows`; avslöjade en bugg (se *Felsökning* nedan)
+
+Totalt **31 tester**, alla gröna (`mvn test`). Varje central komponent – `Repository<T>`, `TransaktionValidator`, `BudgetService` och `TransaktionFilHanterare` – har en egen testklass med normalfall, gränsfall och (där det är rimligt) `assertThrows` för egna undantag.
+- [ ] Tester för att spara/läsa en riktig fil (saknad fil, trasig rad hoppas över)
 
 ### Loggning
 - [ ] Loggning vid felaktig indata och filfel (G)
 - [ ] Loggning med flera nivåer – DEBUG/INFO/WARNING/ERROR – konsekvent i hela appen (VG)
 
 ### Dokumentation
-- [x] Minst en dokumenterad bugg (se nedan) – två buggar dokumenterade
+- [x] Minst en dokumenterad bugg (se nedan) – tre buggar dokumenterade
 - [ ] Reflektion kring generics och Stream API (VG)
 
 ## Felsökning – dokumenterad bugg
@@ -319,6 +334,71 @@ Före och Efter inte), och alla 26 tester går igenom (`mvn test`). Testet ligge
 
 **Lärdom:** fel vid gränsvärden syns inte om man bara provar med ett värde mitt i intervallet. Ett bra
 gränsvärdestest har ett värde **på** varje gräns och ett **precis utanför** varje gräns.
+
+### Bugg 3: trasigt belopp i CSV-filen gav fel undantag (risk för krasch)
+
+**Symptom:** `TransaktionFilHanterare.franCsvRad(rad)` gör om en rad från CSV-filen till en `Transaktion`.
+Om raden är trasig ska metoden kasta vårt eget `FileFormatException`, så att inläsningen kan logga raden
+och hoppa över den. En rad med rätt antal fält men ett belopp som inte är ett tal, t.ex.
+`2022-01-01;Kategori;abc;UTGIFT`, gav i stället Javas eget `NumberFormatException`. Hade en sådan rad
+funnits i filen vid start hade programmet kraschat – något uppgiften uttryckligen säger att det inte får göra.
+
+Den första versionen av `catch` var:
+
+```java
+} catch (DateTimeParseException e) {
+    throw new FileFormatException("Felaktig rad i filen: " + rad);
+}
+```
+
+#### 1. Upptäckt – failande test
+Testet `testFranCsvRad_beloppInteTal_kastarFileFormatException` skickar in en rad där beloppet är `abc`
+och förväntar sig `FileFormatException`:
+
+```java
+String rad = "2022-01-01;Kategori;abc;UTGIFT";
+assertThrows(FileFormatException.class, () -> filHanterare.franCsvRad(rad));
+```
+
+Testet blev rött:
+
+```
+AssertionFailedError: Unexpected exception type thrown,
+Expected :class FileFormatException
+Actual   :class java.lang.NumberFormatException
+```
+
+Testet committades medan det fortfarande var rött, innan buggen åtgärdades, så att det syns i git-historiken
+att det var testet som hittade felet.
+
+#### 2. Felsökning – felmeddelandet från testet
+- Felmeddelandet visar **vilket** undantag som kastades i stället: `NumberFormatException`.
+- Det kommer från `Double.parseDouble("abc")`, som inte kan göra om texten till ett tal.
+- `catch`-blocket fångade bara `DateTimeParseException` (fel på **datumet**). `NumberFormatException` är
+  inte en sådan, så den passerade rakt igenom `catch` och kom ut ur metoden.
+
+**Orsak:** `catch` täckte bara ett av de tre fälten som parsas. Samma lucka gällde typen:
+`TransaktionTyp.valueOf("KAFFE")` kastar `IllegalArgumentException`, som inte heller fångades.
+
+#### 3. Åtgärd
+`catch` fångar nu även `IllegalArgumentException` med en *multi-catch* (`|` = "det ena eller det andra"):
+
+```java
+// Före
+} catch (DateTimeParseException e) {
+
+// Efter
+} catch (DateTimeParseException | IllegalArgumentException e) {
+```
+
+`NumberFormatException` är en **underklass** till `IllegalArgumentException`, så den fångas också.
+Med en enda extra typ täcks alltså både felaktigt belopp och felaktig typ.
+
+**Verifiering:** `testFranCsvRad_beloppInteTal_kastarFileFormatException` blev grönt, och alla 31 tester
+går igenom (`mvn test`). Testet ligger kvar som regressionstest.
+
+**Lärdom:** när en metod parsar flera fält kan varje fält kasta sitt **eget** undantag. Ett test per
+sorts trasigt fält visar om `catch` verkligen täcker alla – att ett fel fångas betyder inte att alla gör det.
 
 ## Reflektion: generics och Stream API
 
