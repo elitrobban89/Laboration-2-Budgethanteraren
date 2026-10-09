@@ -3,6 +3,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.logging.Logger;
 
 /**
  * Räknar på transaktionerna i ett Repository: saldo och summa per kategori m.m.
@@ -10,6 +11,7 @@ import java.util.stream.Collectors;
  */
 public class BudgetService {
     private final Repository<Transaktion> repository;
+    private static final Logger logger = Logger.getLogger(BudgetService.class.getName()); //Skapa Logger fält
 
     //Repositoryt som används för att hämta transaktioner.
     public BudgetService(Repository<Transaktion> repository) {
@@ -47,7 +49,9 @@ public class BudgetService {
      * @return lista med transaktioner av den typen, tom lista om det inte finns några
      */
     public List<Transaktion> filtreraTyp(TransaktionTyp typ) {
-        return repository.findWhere(t -> t.typ() == typ); //Använder findWhere-metoden i Repository
+        List<Transaktion> resultat = repository.findWhere(t -> t.typ() == typ); //Använder findWhere-metoden i Repository
+        logger.fine("filtreraTyp( " + typ + ") gav " + resultat.size() + " transaktioner"); //Loggar antal transaktioner som filtreras
+        return resultat;
     }
 
     /**
@@ -58,7 +62,9 @@ public class BudgetService {
      * @return lista med transaktioner inom intervallet, tom lista om det inte finns några
      */
     public List<Transaktion> filtreraDatum(LocalDate start, LocalDate slut) { //Vilka transaktioner som ska visas
-        return repository.findWhere(t -> !t.datum().isBefore(start) && !t.datum().isAfter(slut)); //Åtgärd av bugg om datumet är gränsdagen ska vi få med transaktionen i filtret
+        List<Transaktion> resultat = repository.findWhere(t -> !t.datum().isBefore(start) && !t.datum().isAfter(slut)); //Åtgärd av bugg 2: gränsdagarna ska räknas med
+        logger.fine("filtreraDatum(" + start + " – " + slut + ") gav " + resultat.size() + " transaktioner"); //Åtgärd av bugg om datumet är gränsdagen ska vi få med transaktionen i filtret
+        return resultat;
     }
 
     /**

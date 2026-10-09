@@ -34,6 +34,8 @@ vid första start och ligger i `.gitignore`.
 .run/
 └── CliApp.run.xml                        # Delad körkonfiguration för IntelliJ (-Dstdin.encoding=UTF-8)
 src/
+├── main/resources/
+│   └── logging.properties                # Loggkonfiguration: alla nivåer till budget.log, WARNING+ i konsolen
 ├── main/java/
 │   ├── BudgetService.java                # Beräkningar: saldo, summa per kategori, filtrering, sortering
 │   ├── CliApp.java                       # Meny och användarinteraktion
@@ -83,6 +85,7 @@ src/
   - `summaPerKategori()` – returnerar en `Map<String, Double>` med kategorin som nyckel och summan som värde. Byggs med `Collectors.groupingBy(t -> t.kategori(), Collectors.summingDouble(t -> t.belopp()))`: transaktioner med samma kategori hamnar i samma grupp och deras belopp summeras. Här räknas inte inkomst minus utgift – varje kategori summeras för sig. Inga transaktioner ger en tom `Map`.
   - `filtreraTyp(typ)` – returnerar bara inkomster eller bara utgifter. Använder `repository.findWhere(t -> t.typ() == typ)`, så villkoret skickas in som en lambda och `Repository` behöver ingen egen metod för typfilter.
   - `filtreraDatum(start, slut)` – returnerar transaktioner inom ett datumintervall, där **båda gränsdagarna räknas med**: `findWhere(t -> !t.datum().isBefore(start) && !t.datum().isAfter(slut))`.
+  - Båda filtren sparar resultatet i en variabel och loggar filtret och antalet träffar som `FINE` innan listan returneras.
   - `sorteraPaDatum()` – returnerar alla transaktioner sorterade på datum, äldst först: `stream().sorted(Comparator.comparing(t -> t.datum())).toList()`. Skillnaden mot filtrering: **filtrering väljer *vilka*** transaktioner som visas (färre eller lika många), **sortering bestämmer *ordningen*** (alla är kvar). Repot ändras inte – `findAll()` ger en kopia och `sorted()` skapar en ny ström.
 - **`CliApp`** – menyn. Väljer typ och anropar sedan `parseBelopp` och `validate` i ett gemensamt `try/catch`. Vid fel skrivs validatorns meddelande ut med `e.getMessage()` och programmet fortsätter utan att krascha. Kategorin trimmas först efter valideringen, när den säkert inte är `null`. Menyval 3 hämtar saldot och summan per kategori från `BudgetService` och skriver ut dem; finns inga transaktioner visas ett meddelande i stället för en tom lista.
   - Menyval 4 visar en undermeny (`1. Datum`, `2. Typ`, `3. Alla, sorterade på datum`). Varje filter har en egen liten metod i `CliApp` (`visaFiltreratPaTyp`, `visaFiltreratPaDatum`) som frågar användaren och sedan anropar motsvarande metod i `BudgetService`. Namnen skiljer sig från `BudgetService`-metoderna med flit: `CliApp` *frågar och visar*, `BudgetService` *räknar*.
@@ -156,7 +159,7 @@ Därför loggar `TransaktionFilHanterare` (en filklass) i stället för att skri
 
 | Uppgiften | `java.util.logging` | Används i appen för |
 |---|---|---|
-| DEBUG | `FINE` | *(återstår)* detaljer under felsökning |
+| DEBUG | `FINE` | detaljer för felsökning: varje rad som läses/skrivs i filen, och vad filtren i `BudgetService` returnerar |
 | INFO | `INFO` | normala händelser: filen lästes in / sparades, med antal transaktioner |
 | WARNING | `WARNING` | något var fel men programmet hanterar det: ogiltig inmatning, trasig rad i filen |
 | ERROR | `SEVERE` | allvarligt fel: filen gick inte att läsa eller spara (data kan gå förlorad) |
@@ -164,19 +167,54 @@ Därför loggar `TransaktionFilHanterare` (en filklass) i stället för att skri
 En trasig rad är `WARNING` och inte `SEVERE`: raden hoppas över och resten av filen läses in som vanligt.
 Ett misslyckat sparande är däremot `SEVERE`, eftersom användarens transaktioner då inte finns kvar efter avslut.
 
-Exempel från en körning (en trasig rad i filen, belopp `abc`, bakvänt datumintervall, avslut):
+**Var loggarna loggas – per klass:**
+
+| Klass | Nivåer | Vad |
+|---|---|---|
+| `CliApp` | `INFO`, `WARNING`, `SEVERE` | inläsning/sparning av filen, ogiltig inmatning, filfel och stoppad sparning (bugg 4) |
+| `TransaktionFilHanterare` | `FINE`, `WARNING` | varje rad som läses/skrivs, trasiga rader som hoppas över |
+| `BudgetService` | `FINE` | `filtreraTyp`/`filtreraDatum`: vilket filter som användes och hur många träffar det gav |
+
+`Repository`, `TransaktionValidator` och domänklasserna loggar inte själva: de kastar undantag, och undantagen
+loggas där de fångas (i `CliApp`). På så sätt loggas samma fel inte två gånger.
+
+### Konfiguration – `src/main/resources/logging.properties`
+Konfigurationen läses in först i `main` av `startaLoggning()`, med
+`LogManager.getLogManager().readConfiguration(...)`. Filen hämtas med `getResourceAsStream`, så den hittas oavsett
+vilken mapp programmet körs från. Saknas den fortsätter programmet med Javas standardloggning i stället för att krascha.
+
+| Var | Nivåer | Varför |
+|---|---|---|
+| Filen `budget.log` | `FINE` och uppåt (alla) | allt som behövs vid felsökning, med `append = true` så att tidigare körningar finns kvar |
+| Konsolen | `WARNING` och uppåt | menyn ska inte störas av `INFO`/`FINE`; bara sådant som är fel syns |
+
+Formatet är en rad per logg – datum, tid, nivå, klass och meddelande:
+`%1$tF %1$tT %4$-7s [%3$s] %5$s%n`. `budget.log` ligger i `.gitignore`.
+
+Exempel från en körning – en trasig rad i filen, belopp `abc`, filter på typ och datum, avslut.
+
+**Konsolen** (bara `WARNING`+):
 ```
-okt. 09, 2026 11:52:39 FM TransaktionFilHanterare las
-WARNING: Hoppar över trasig rad: Felaktig rad i filen: hej hopp
-okt. 09, 2026 11:52:39 FM CliApp lasFranFil
-INFO: Läste in 1 transaktioner från transaktioner.csv
-okt. 09, 2026 11:52:39 FM CliApp skapaTransaktion
-WARNING: Ogiltig transaktion: Felaktigt format på belopp!
-okt. 09, 2026 11:52:39 FM CliApp visaFiltreratPaDatum
-WARNING: Ogiltigt datumintervall: Startdatum efter slutdatum: 2099-01-01 är efter 2026-01-01
-okt. 09, 2026 11:52:39 FM CliApp sparaTillFil
-INFO: Sparade 1 transaktioner till transaktioner.csv
+2026-10-09 15:00:34 WARNING [TransaktionFilHanterare] Hoppar över trasig rad: Felaktig rad i filen: hej hopp
+2026-10-09 15:00:34 WARNING [CliApp] Ogiltig transaktion: Felaktigt format på belopp!
 ```
+
+**`budget.log`** (alla nivåer):
+```
+2026-10-09 15:00:34 FINE    [TransaktionFilHanterare] Läste rad: 2026-10-01;Lön;25000.0;INKOMST
+2026-10-09 15:00:34 WARNING [TransaktionFilHanterare] Hoppar över trasig rad: Felaktig rad i filen: hej hopp
+2026-10-09 15:00:34 FINE    [TransaktionFilHanterare] Läste rad: 2026-10-03;Mat;842.5;UTGIFT
+2026-10-09 15:00:34 INFO    [CliApp] Läste in 2 transaktioner från transaktioner.csv
+2026-10-09 15:00:34 WARNING [CliApp] Ogiltig transaktion: Felaktigt format på belopp!
+2026-10-09 15:00:34 FINE    [BudgetService] filtreraTyp( UTGIFT) gav 1 transaktioner
+2026-10-09 15:00:34 FINE    [BudgetService] filtreraDatum(2026-10-01 – 2026-10-31) gav 2 transaktioner
+2026-10-09 15:00:34 FINE    [TransaktionFilHanterare] Skrev rad: 2026-10-01;Lön;25000.0;INKOMST
+2026-10-09 15:00:34 FINE    [TransaktionFilHanterare] Skrev rad: 2026-10-03;Mat;842.5;UTGIFT
+2026-10-09 15:00:34 INFO    [CliApp] Sparade 2 transaktioner till transaktioner.csv
+```
+
+Loggen berättar hela förloppet: vilka rader som lästes, vilken som hoppades över och varför, vad filtren gav och
+exakt vad som skrevs tillbaka. `SEVERE` syns inte här eftersom inget allvarligt hände – se *Bugg 4* för ett exempel.
 
 ## Status
 
@@ -253,11 +291,13 @@ Totalt **35 tester**, alla gröna (`mvn test`). Varje central komponent – `Rep
   - [x] `WARNING` i `CliApp` vid ogiltig transaktion, felaktigt datum och bakvänt datumintervall
   - [x] `WARNING` i `TransaktionFilHanterare.las` när en trasig rad hoppas över
   - [x] `INFO` när filen läses in/sparas, `SEVERE` när det misslyckas
-- [ ] Loggning med flera nivåer – DEBUG/INFO/WARNING/ERROR – konsekvent i hela appen (VG) – *delvis: INFO, WARNING och SEVERE klara; FINE (DEBUG) och loggkonfiguration återstår*
+- [x] Loggning med flera nivåer – DEBUG/INFO/WARNING/ERROR – konsekvent i hela appen (VG)
+  - [x] `FINE` (DEBUG) i `TransaktionFilHanterare` (varje rad läst/skriven) och `BudgetService` (filterresultat)
+  - [x] `logging.properties`: alla nivåer till `budget.log`, bara `WARNING`+ i konsolen
 
 ### Dokumentation
 - [x] Minst en dokumenterad bugg (se nedan) – sex buggar dokumenterade
-- [ ] Reflektion kring generics och Stream API (VG)
+- [x] Reflektion kring generics och Stream API (VG)
 
 ## Felsökning – dokumenterad bugg
 
@@ -715,6 +755,64 @@ Lagringen byggde därför på vanliga arrayer, vilket gav flera problem:
 - **Mindre kod blir lättare att testa**: eftersom `Repository` är liten och generell
   kunde den testas helt fristående i `RepositoryTest`.
 
+### Stream API i `BudgetService` – jämfört med loopar
+Alla beräkningar i `BudgetService` är skrivna med Stream API. Så här hade två av dem sett ut med
+loopar, som i Laboration 1:
+
+**Saldo** – med loop behövs en variabel att summera i och en if-sats:
+```java
+double saldo = 0;
+for (Transaktion t : repository.findAll()) {
+    if (t.typ() == TransaktionTyp.INKOMST) {
+        saldo += t.belopp();
+    } else {
+        saldo -= t.belopp();
+    }
+}
+return saldo;
+```
+Med Stream API blir det en kedja som läses uppifrån och ned – *gör om varje transaktion till + eller −, summera*:
+```java
+return repository.findAll().stream()
+        .mapToDouble(t -> t.typ() == TransaktionTyp.INKOMST ? t.belopp() : -t.belopp())
+        .sum();
+```
+
+**Summa per kategori** – med loop måste vi själva bygga upp en `Map`, kontrollera om nyckeln redan finns
+och lägga ihop:
+```java
+Map<String, Double> perKategori = new HashMap<>();
+for (Transaktion t : repository.findAll()) {
+    double tidigare = perKategori.getOrDefault(t.kategori(), 0.0);
+    perKategori.put(t.kategori(), tidigare + t.belopp());
+}
+return perKategori;
+```
+Med `groupingBy` och `summingDouble` beskriver vi bara *vad* vi vill ha – gruppera på kategori, summera beloppen –
+och Java sköter *hur*:
+```java
+return repository.findAll().stream()
+        .collect(Collectors.groupingBy(t -> t.kategori(), Collectors.summingDouble(t -> t.belopp())));
+```
+
+Samma sak gäller `sorteraPaDatum()`: `sorted(Comparator.comparing(t -> t.datum()))` i stället för en egen
+sorteringsalgoritm eller `Collections.sort` på en kopia.
+
+**Vad det gav i praktiken:**
+- **Mindre kod och färre ställen att göra fel på.** Det finns ingen räknare, ingen `if (map.containsKey(...))`
+  och ingen tillfällig lista att glömma. Varje metod i `BudgetService` är en eller några få rader.
+- **Lättare att testa.** Eftersom metoderna bara tar in data och returnerar ett resultat (de ändrar inte repot)
+  kunde varje metod testas med ett eget repo i Arrange och en `assertEquals` i Assert.
+- **Generics och streams samverkar.** `findWhere(Predicate<T>)` i `Repository<T>` använder själv `stream().filter(...)`.
+  `BudgetService` skickar bara in villkoret, t.ex. `t -> t.typ() == typ`. Både typfiltret och datumfiltret blev därför
+  en rad var, utan någon ny metod i `Repository`.
+
+**Men det har också en baksida**, och den märkte vi i felsökningen. När datumfiltret missade gränsdagarna (*Bugg 2*)
+gick det inte att sätta en vanlig breakpoint och stega genom en loop, eftersom loopen sker inne i streamen.
+Vi fick använda en **lambdabreakpoint** och **watches** i stället för att se värdet per transaktion. Streams är
+kortare att läsa, men kräver att man vet hur man felsöker dem. Därför loggar `BudgetService` nu också hur många
+träffar varje filter ger (`FINE`) – då syns ett felaktigt resultat i `budget.log` utan att man behöver debuggern.
+
 Nackdelen är att mer sker "bakom kulisserna". Med arrayer i Laboration 1 såg man exakt
 vad som hände i varje steg, och det gav en bra förståelse för vad `ArrayList` och
 streams faktiskt gör åt en.
@@ -722,5 +820,16 @@ streams faktiskt gör åt en.
 ## Visualisering från Plan mode i Claude
 
 Översikt över uppgiften: arkitektur, meny, G/VG-krav som checklista och förslag på arbetsordning.
+
+Jag har använt visualiseringen som en **karta** för att navigera genom uppgiften. Den togs fram i Plan mode i Claude
+i början av arbetet, utifrån uppgiftsbeskrivningen, och har följt med under hela projektet:
+- **Kravlistan** har jag bockat av allteftersom varje G- och VG-krav blev klart, så att jag hela tiden såg vad som återstod.
+- **Arkitekturen** (konsol → logik → data → fil) har hjälpt mig att hålla isär ansvaret mellan klasserna, t.ex. att
+  `BudgetService` bara räknar och att `CliApp` är den enda klassen som pratar med användaren.
+- **Arbetsordningen** har jag följt i stora drag: domänmodell och `Repository<T>` först, sedan beräkningar och tester,
+  fil-I/O, loggning och till sist README.
+
+Kartan har uppdaterats under arbetets gång när delar blivit klara, t.ex. med klassnamnen från koden
+(`TransaktionFilHanterare`) och antalet dokumenterade buggar.
 
 [Öppna visualiseringen](https://claude.ai/artifact/Fh8swzWQhvkKQG8c3UYsqf)
