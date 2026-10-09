@@ -63,7 +63,7 @@ src/
 - **`TransaktionValidator`** – samlar all validering av indata och alla felmeddelanden på ett ställe:
   - `parseBelopp(text)` – gör om text till ett `double`. Kastar `InvalidTransactionException` om texten saknas (`null`) eller inte är ett tal, i stället för att låta `NumberFormatException` nå menyn.
   - `parseDatum(text)` – gör om text i formatet `ÅÅÅÅ-MM-DD` till ett `LocalDate` med `LocalDate.parse`. Fångar `DateTimeParseException` (t.ex. `abc`, `2026-13-45` eller fel format) och kastar `InvalidTransactionException` med ett svenskt meddelande – samma mönster som `parseBelopp`.
-  - `validate(belopp, kategori)` – kastar `InvalidTransactionException` om beloppet är 0, negativt, `NaN` eller `Infinity`, eller om kategorin är tom.
+  - `validate(belopp, kategori)` – kastar `InvalidTransactionException` om beloppet är 0, negativt, `NaN` eller `Infinity`, om kategorin är tom, eller om kategorin innehåller semikolon (`;` är avgränsaren i CSV-filen).
 
   Valideringen ligger i en egen klass (i stället för i menyn) så att den kan testas med JUnit utan tangentbordsinmatning.
 - **`FileFormatException`** – eget *checked* undantag för en trasig rad i CSV-filen. Checked med flit: kompilatorn tvingar inläsningen att fånga felet, så att en trasig rad kan loggas och hoppas över i stället för att krascha programmet.
@@ -216,13 +216,14 @@ INFO: Sparade 1 transaktioner till transaktioner.csv
   - [x] gränsfall: `findWhere` på tomt repo
   - [x] `assertThrows` – resultatet från `findWhere` går inte att ändra
   - [x] generics + gränsvärden – `Repository<Integer>` med värden runt 100
-- [x] `TransaktionValidatorTest` – 11 tester:
+- [x] `TransaktionValidatorTest` – 12 tester:
   - [x] `parseBelopp` normalfall – `" 100 "` blir `100` (parsning + trim)
   - [x] `parseBelopp` med `null` – ger `InvalidTransactionException`, inte `NullPointerException`
   - [x] `parseBelopp` med bokstäver – `assertThrows` + kontroll av felmeddelandet
   - [x] `validate` gränsvärden för belopp – `0` (på gränsen, kontroll av felmeddelandet), `-5`, och `0.01` (minsta giltiga, `assertDoesNotThrow`)
   - [x] `validate` kategori – tom (kontroll av felmeddelandet), bara mellanslag, `null`
   - [x] `NaN`/`Infinity` som belopp – avslöjade en bugg som nu är åtgärdad (se *Felsökning* nedan)
+  - [x] `validate` kategori med semikolon (`Mat;fika`) – `assertThrows` + kontroll av felmeddelandet; avslöjade bugg 6
 - [x] `BudgetServiceTest` – 7 tester. Varje test bygger sitt eget repo i Arrange och skickar in det i `BudgetService`:
   - [x] `saldo()` gränsfall – inga transaktioner ger `0.0`
   - [x] `saldo()` inkomster minus utgifter – Lön 25000, Mat 842.50, Hyra 7200 ger `16957.50` (förväntat värde uträknat för hand)
@@ -243,7 +244,7 @@ INFO: Sparade 1 transaktioner till transaktioner.csv
 
   Filtesterna använder JUnits **`@TempDir`**: varje test får en ny tillfällig mapp som raderas efteråt, så testerna rör aldrig den riktiga `transaktioner.csv` och lämnar inga filer efter sig. Innehållet i den trasiga filen skrivs direkt i testet med `Files.writeString` och ett textblock (`"""`).
 
-Totalt **34 tester**, alla gröna (`mvn test`). Varje central komponent – `Repository<T>`, `TransaktionValidator`, `BudgetService` och `TransaktionFilHanterare` – har en egen testklass med normalfall, gränsfall och (där det är rimligt) `assertThrows` för egna undantag.
+Totalt **35 tester**, alla gröna (`mvn test`). Varje central komponent – `Repository<T>`, `TransaktionValidator`, `BudgetService` och `TransaktionFilHanterare` – har en egen testklass med normalfall, gränsfall och (där det är rimligt) `assertThrows` för egna undantag.
 
 ### Loggning
 - [x] Loggning vid felaktig indata och filfel (G)
@@ -253,7 +254,7 @@ Totalt **34 tester**, alla gröna (`mvn test`). Varje central komponent – `Rep
 - [ ] Loggning med flera nivåer – DEBUG/INFO/WARNING/ERROR – konsekvent i hela appen (VG) – *delvis: INFO, WARNING och SEVERE klara; FINE (DEBUG) och loggkonfiguration återstår*
 
 ### Dokumentation
-- [x] Minst en dokumenterad bugg (se nedan) – fem buggar dokumenterade
+- [x] Minst en dokumenterad bugg (se nedan) – sex buggar dokumenterade
 - [ ] Reflektion kring generics och Stream API (VG)
 
 ## Felsökning – dokumenterad bugg
@@ -617,6 +618,71 @@ repot. Den som öppnar projektet i IntelliJ – t.ex. läraren – får inställ
 
 **Lärdom:** en bugg kan sitta i miljön och inte i koden. Det som fungerar på en dator kan bli fel på en annan, så
 inställningar som behövs för att köra programmet ska följa med projektet – inte bara finnas lokalt.
+
+### Bugg 6: semikolon i kategorin gav en trasig CSV-rad – transaktionen försvann
+
+**Symptom:** Kategorin `Mat;fika` godkändes och transaktionen skapades som vanligt. Men eftersom `;` är
+avgränsaren i CSV-filen sparades raden med **fem** fält i stället för fyra:
+
+```
+2026-10-09;Mat;fika;100.0;UTGIFT
+```
+
+Vid nästa start såg `franCsvRad` raden som trasig (`delar.length != 4`), loggade en `WARNING` och hoppade över den.
+När programmet sedan sparade vid avslut var transaktionen **borta för gott** – utan att användaren fått något fel
+när hen skrev in den.
+
+#### 1. Upptäckt – kodgranskning, sedan failande test
+Buggen hittades vid en genomgång av vad som kan stå i en kategori: `validate` kontrollerade bara att kategorin inte
+var tom, och `tillCsvRad` sätter ihop fälten med `;` utan att kontrollera innehållet. Scenariot återskapades i appen
+(se symptomet ovan) och skrevs sedan som ett test i `TransaktionValidatorTest`:
+
+```java
+InvalidTransactionException e = assertThrows(InvalidTransactionException.class,
+        () -> TransaktionValidator.validate(100, "Mat;fika"));
+assertEquals("Kategorin får inte innehålla semikolon (;)", e.getMessage());
+```
+
+Testet blev rött:
+
+```
+testValidate_kategoriMedSemikolon  Expected InvalidTransactionException to be thrown, but nothing was thrown.
+Tests run: 35, Failures: 1
+```
+
+Testet committades medan det var rött, innan buggen åtgärdades.
+
+#### 2. Felsökning
+- Felmeddelandet *"nothing was thrown"* visar att `validate` släppte igenom `Mat;fika` utan att reagera.
+- Felet syns först **vid nästa start**, långt efter att transaktionen skrevs in – i loggen som
+  `WARNING: Hoppar över trasig rad: Felaktig rad i filen: 2026-10-09;Mat;fika;100.0;UTGIFT`.
+
+**Orsak:** indata som är giltig för appen (vilken text som helst i kategorin) var inte giltig för filformatet.
+Valideringen visste inget om att `;` har en särskild betydelse i filen.
+
+#### 3. Åtgärd
+En kontroll lades till i `TransaktionValidator.validate`, **efter** null-kontrollen så att `contains` aldrig
+anropas på `null`:
+
+```java
+if (kategori == null || kategori.trim().isEmpty()) {
+    throw new InvalidTransactionException("Kategorin måste vara ifylld");
+}
+if (kategori.contains(";")) {
+    throw new InvalidTransactionException("Kategorin får inte innehålla semikolon (;)");
+}
+```
+
+Felet stoppas nu redan vid inmatningen, där användaren kan rätta det – i stället för att data tyst försvinner senare.
+
+**Verifiering:**
+- `testValidate_kategoriMedSemikolon` blev grönt, och alla 35 tester går igenom (`mvn test`).
+- I appen avvisas `Mat;fika` med meddelandet *"Kategorin får inte innehålla semikolon (;)"* och loggas som
+  `WARNING: Ogiltig transaktion: ...`. Kategorin `Mat fika` (utan semikolon) sparas som en hel rad:
+  `2026-10-09;Mat fika;100.0;UTGIFT`.
+
+**Lärdom:** validering ska inte bara fråga *"ser indatan rimlig ut?"* utan också *"går den att spara och läsa
+tillbaka?"*. Ett tecken som har en särskild betydelse i filformatet måste stoppas – eller hanteras – redan vid inmatningen.
 
 ## Reflektion: generics och Stream API
 

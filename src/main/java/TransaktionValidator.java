@@ -51,5 +51,8 @@ public class TransaktionValidator {
         if (kategori == null || kategori.trim().isEmpty()) {
             throw new InvalidTransactionException("Kategorin måste vara ifylld");
         }
+        if (kategori.contains(";")) {
+            throw new InvalidTransactionException("Kategorin får inte innehålla semikolon (;)");
+        }
     }
 }
