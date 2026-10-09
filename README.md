@@ -66,7 +66,7 @@ src/
   - `las(fil)` – läser filen rad för rad med `Files.newBufferedReader` i try-with-resources (`readLine()` ger `null` när filen är slut).
     - **Saknas filen** skapas en ny tom fil med `Files.createFile` och en tom lista returneras – programmet kraschar inte vid första start.
     - **Tomma rader** hoppas över (`isBlank()`).
-    - **Trasiga rader** hoppas över: `try/catch (FileFormatException)` ligger *inne i* loopen, så en trasig rad stoppar bara sig själv och läsningen fortsätter med nästa rad. Raden rapporteras med felmeddelandet från `FileFormatException`.
+    - **Trasiga rader** hoppas över: `try/catch (FileFormatException)` ligger *inne i* loopen, så en trasig rad stoppar bara sig själv och läsningen fortsätter med nästa rad. Raden loggas som `WARNING` med felmeddelandet från `FileFormatException`.
   - Översättningen (`tillCsvRad`/`franCsvRad`) är skild från själva filläsningen, så att formatet kan testas utan att skapa filer.
   - Filen skickas in som en `Path` till `spara` och `las` i stället för att stå i klassen. Därför kan appen använda `transaktioner.csv` medan testerna använder en tillfällig fil.
 - **`BudgetService`** – räknar på transaktionerna i repot. Den läser inte från tangentbordet och skriver inte ut något, så den kan testas med JUnit.
@@ -84,7 +84,7 @@ src/
   - **Fil:** sökvägen bestäms på ett ställe, konstanten `FIL = Path.of("transaktioner.csv")`.
     - `lasFranFil()` anropas **en gång** i början av `main`, *före* menyloopen. Transaktionerna från filen läggs in i repot med `add`, så menyval 2–4 ser dem direkt.
     - `sparaTillFil()` (menyval 5) sparar `repository.findAll()` till filen. Samma metod anropas också vid `e`, så att inget försvinner om användaren glömmer att spara.
-    - Båda fångar `IOException` och skriver ut ett meddelande, så ett filfel kraschar inte programmet.
+    - Båda fångar `IOException` och skriver ut ett meddelande, så ett filfel kraschar inte programmet. Lyckad läsning/sparning loggas som `INFO`, misslyckad som `SEVERE`.
 
 Exempel på menyval 4 (datum):
 ```
@@ -124,6 +124,47 @@ Summa per kategori:
 Mat: 1092.5 kr
 Hyra: 7200.0 kr
 Lön: 25000.0 kr
+```
+
+## Loggning
+
+Appen loggar med **`java.util.logging`**, som är inbyggt i Java – inga extra beroenden i `pom.xml`.
+Varje klass som loggar har en egen logger:
+
+```java
+private static final Logger logger = Logger.getLogger(CliApp.class.getName());
+```
+
+**Två mottagare, två verktyg:**
+- `IO.println` är till för **användaren** – vad som hände och vad hen ska göra annorlunda.
+- `logger` är till för **utvecklaren** – varje loggrad får automatiskt tidsstämpel, nivå och vilken klass och metod den kom från, vilket gör den användbar vid felsökning.
+
+Därför loggar `TransaktionFilHanterare` (en filklass) i stället för att skriva till användaren – det är `CliApp` som pratar med användaren.
+
+**Nivåer** – `java.util.logging` har andra namn än uppgiftens, men de motsvarar varandra:
+
+| Uppgiften | `java.util.logging` | Används i appen för |
+|---|---|---|
+| DEBUG | `FINE` | *(återstår)* detaljer under felsökning |
+| INFO | `INFO` | normala händelser: filen lästes in / sparades, med antal transaktioner |
+| WARNING | `WARNING` | något var fel men programmet hanterar det: ogiltig inmatning, trasig rad i filen |
+| ERROR | `SEVERE` | allvarligt fel: filen gick inte att läsa eller spara (data kan gå förlorad) |
+
+En trasig rad är `WARNING` och inte `SEVERE`: raden hoppas över och resten av filen läses in som vanligt.
+Ett misslyckat sparande är däremot `SEVERE`, eftersom användarens transaktioner då inte finns kvar efter avslut.
+
+Exempel från en körning (en trasig rad i filen, belopp `abc`, bakvänt datumintervall, avslut):
+```
+okt. 09, 2026 11:52:39 FM TransaktionFilHanterare las
+WARNING: Hoppar över trasig rad: Felaktig rad i filen: hej hopp
+okt. 09, 2026 11:52:39 FM CliApp lasFranFil
+INFO: Läste in 1 transaktioner från transaktioner.csv
+okt. 09, 2026 11:52:39 FM CliApp skapaTransaktion
+WARNING: Ogiltig transaktion: Felaktigt format på belopp!
+okt. 09, 2026 11:52:39 FM CliApp visaFiltreratPaDatum
+WARNING: Ogiltigt datumintervall: Startdatum efter slutdatum: 2099-01-01 är efter 2026-01-01
+okt. 09, 2026 11:52:39 FM CliApp sparaTillFil
+INFO: Sparade 1 transaktioner till transaktioner.csv
 ```
 
 ## Status
@@ -196,8 +237,11 @@ Lön: 25000.0 kr
 Totalt **34 tester**, alla gröna (`mvn test`). Varje central komponent – `Repository<T>`, `TransaktionValidator`, `BudgetService` och `TransaktionFilHanterare` – har en egen testklass med normalfall, gränsfall och (där det är rimligt) `assertThrows` för egna undantag.
 
 ### Loggning
-- [ ] Loggning vid felaktig indata och filfel (G)
-- [ ] Loggning med flera nivåer – DEBUG/INFO/WARNING/ERROR – konsekvent i hela appen (VG)
+- [x] Loggning vid felaktig indata och filfel (G)
+  - [x] `WARNING` i `CliApp` vid ogiltig transaktion, felaktigt datum och bakvänt datumintervall
+  - [x] `WARNING` i `TransaktionFilHanterare.las` när en trasig rad hoppas över
+  - [x] `INFO` när filen läses in/sparas, `SEVERE` när det misslyckas
+- [ ] Loggning med flera nivåer – DEBUG/INFO/WARNING/ERROR – konsekvent i hela appen (VG) – *delvis: INFO, WARNING och SEVERE klara; FINE (DEBUG) och loggkonfiguration återstår*
 
 ### Dokumentation
 - [x] Minst en dokumenterad bugg (se nedan) – tre buggar dokumenterade

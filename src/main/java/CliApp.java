@@ -228,8 +228,10 @@ public class CliApp {
         try {
             filHanterare.spara(repository.findAll(),FIL);
             IO.println("Transaktionerna sparades till fil: " + FIL);
+            logger.info("Sparade " + repository.findAll().size() + " transaktioner till " + FIL);
         } catch (IOException e) {
             IO.println("Det gick inte att spara till fil: " + e.getMessage());
+            logger.severe("Kunde inte spara till " + FIL + ": " + e.getMessage());
         }
     }
     /**
@@ -243,8 +245,10 @@ public class CliApp {
                 repository.add(t);
             }
             IO.println(sparade.size() + " transaktioner lästes in från " + FIL);
+            logger.info("Läste in " + sparade.size() + " transaktioner från " + FIL);
         } catch (IOException e) {
             IO.println("Kunde inte läsa filen: " + e.getMessage());
+            logger.severe("Kunde inte läsa " + FIL + ": " + e.getMessage());
         }
     }
 
