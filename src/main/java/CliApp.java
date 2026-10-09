@@ -24,7 +24,8 @@ public class CliApp {
             printMenu();
             String val = IO.readln("Välj Menyalternativ: ");
             if (val == null) {
-                IO.println("Felaktig input, programmet avslutas");
+                IO.println("Inmatning avbröts, programmet avslutas");
+                sparaTillFil();//Ctrl + D fix om man trycker det i menyn.
                 running = false;
                 continue;
             }
@@ -70,6 +71,7 @@ public class CliApp {
         if (typVal == null) {
             return;
         }
+        typVal = typVal.trim(); //Tar bort mellanslag så att tex" 1" räknas som 1 i Val av typ
         TransaktionTyp typ;
         if (typVal.equals("1")) {
             typ = TransaktionTyp.INKOMST;
@@ -162,6 +164,7 @@ public class CliApp {
             IO.println("Ogiltigt val");
             return;
         }
+        val = val.trim(); //Tar bort mellanslag så att tex" 2" räknas som 2 i filtermenyn
         if (val.equals("1")) {
             visaFiltreratPaDatum();
         } else if (val.equals("2")) {
