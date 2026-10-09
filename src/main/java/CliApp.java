@@ -16,6 +16,7 @@ public class CliApp {
 
     static void main() {
         boolean running = true;
+        lasFranFil(); //Läser in sparade transaktioner från filen när programmet startar. Så det inte försvinner mellan programomstarter.
         do {
             printMenu();
             String val = IO.readln("Välj Menyalternativ: ");
@@ -42,6 +43,7 @@ public class CliApp {
                     sparaTillFil();
                     break;
                 case "e":
+                    sparaTillFil(); //Vid avslut ska vi spara transaktionerna till filen så att de inte försvinner
                     IO.println("Avslutar programmet");
                     running = false; //Avsluta programmet
                     break;
@@ -223,6 +225,21 @@ public class CliApp {
             IO.println("Transaktionerna sparades till fil: " + FIL);
         } catch (IOException e) {
             IO.println("Det gick inte att spara till fil: " + e.getMessage());
+        }
+    }
+    /**
+     * Läser in sparade transaktioner från filen när programmet startar.
+     * Saknas filen skapas en tom fil. Om läsningen misslyckas startar programmet med ett tomt repo.
+     */
+    private static void lasFranFil() {
+        try {
+            List<Transaktion> sparade = filHanterare.las(FIL);
+            for (Transaktion t : sparade) {
+                repository.add(t);
+            }
+            IO.println(sparade.size() + " transaktioner lästes in från " + FIL);
+        } catch (IOException e) {
+            IO.println("Kunde inte läsa filen: " + e.getMessage());
         }
     }
 
