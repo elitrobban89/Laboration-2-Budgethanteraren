@@ -60,6 +60,7 @@ public class TransaktionFilHanterare {
             for (Transaktion t : transaktioner) { //Går igenom varje transaktion i listan
                 writer.write(tillCsvRad(t));
                 writer.newLine();
+                logger.fine("Skrev rad: " + tillCsvRad(t)); //Loggar varje rad som skrivs till filen
             }
         }
     }
@@ -76,6 +77,7 @@ public class TransaktionFilHanterare {
                 if (!rad.isBlank()) {
                     try {
                         transaktioner.add(franCsvRad(rad));
+                        logger.fine("Läste rad: " + rad); //Loggar varje rad som läses från filen
                     } catch (FileFormatException e) {
                         logger.warning("Hoppar över trasig rad: " + e.getMessage()); //Loggern är till för utvecklaren ersatte IO.println. CliApp pratar med användaren.
                     }
