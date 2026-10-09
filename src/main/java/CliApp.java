@@ -4,6 +4,8 @@ import java.time.LocalDate;
 import java.util.Map;
 import java.util.List;
 import java.util.logging.Logger;
+import java.io.InputStream;
+import java.util.logging.LogManager;
 
 public class CliApp {
 
@@ -18,6 +20,7 @@ public class CliApp {
     private static boolean filenLastesIn = false; //Blir true om filen har kunnat läsas in
 
     static void main() {
+        startaLoggning();
         boolean running = true;
         lasFranFil(); //Läser in sparade transaktioner från filen när programmet startar. Så det inte försvinner mellan programomstarter.
         do {
@@ -169,7 +172,7 @@ public class CliApp {
             visaFiltreratPaDatum();
         } else if (val.equals("2")) {
             visaFiltreratPaTyp();
-        } else if(val.equals("3")) {
+        } else if (val.equals("3")) {
             skrivUt(budgetService.sorteraPaDatum());
         } else {
             IO.println("Ogiltigt val");
@@ -193,6 +196,7 @@ public class CliApp {
         }
         skrivUt(budgetService.filtreraTyp(typ));
     }
+
     /**
      * Menyval 4.1 Frågar efter ett datumintervall och visar transaktionerna inom det.
      */
@@ -204,7 +208,7 @@ public class CliApp {
             LocalDate slutDatum = TransaktionValidator.parseDatum(slutDatumText);
             if (startDatum.isAfter(slutDatum)) {
                 IO.println("Startdatum kan inte vara efter slutdatum");
-                logger.warning("Ogiltigt datumintervall: Startdatum efter slutdatum: " + startDatum +" är efter " + slutDatum);
+                logger.warning("Ogiltigt datumintervall: Startdatum efter slutdatum: " + startDatum + " är efter " + slutDatum);
                 return;
             }
             skrivUt(budgetService.filtreraDatum(startDatum, slutDatum));
@@ -235,7 +239,7 @@ public class CliApp {
             return;
         }
         try {
-            filHanterare.spara(repository.findAll(),FIL);
+            filHanterare.spara(repository.findAll(), FIL);
             IO.println("Transaktionerna sparades till fil: " + FIL);
             logger.info("Sparade " + repository.findAll().size() + " transaktioner till " + FIL);
         } catch (IOException e) {
@@ -243,9 +247,30 @@ public class CliApp {
             logger.severe("Kunde inte spara till " + FIL + ": " + e.getMessage());
         }
     }
+
+    /**
+     * Metod för att starta loggning
+     * Loggning: Om filen inte kan läsas in skrivs ett meddelande till loggfilen. Läser in loggkonfiguration från logging.properties
+     */
+    private static void startaLoggning() {
+        try (InputStream in = CliApp.class.getResourceAsStream("/logging.properties")) {
+            if (in == null) {
+                IO.println("Det gick inte att läsa in loggkonfigurationen från logging.properties");
+                logger.severe("Det gick inte att läsa in loggkonfigurationen från logging.properties");
+                return;
+            }
+            LogManager.getLogManager().readConfiguration(in);
+        } catch (IOException e) {
+            IO.println("Det gick inte att läsa in loggkonfigurationen från logging.properties");
+            logger.severe("Det gick inte att läsa in loggkonfigurationen från logging.properties");
+        }
+    }
+
+
     /**
      * Läser in sparade transaktioner från filen när programmet startar.
      * Saknas filen skapas en tom fil. Om läsningen misslyckas startar programmet med ett tomt repo.
+     *
      */
     private static void lasFranFil() {
         try {
