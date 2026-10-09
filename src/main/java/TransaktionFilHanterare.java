@@ -33,7 +33,7 @@ public class TransaktionFilHanterare {
             double belopp = Double.parseDouble(delar[2]);
             TransaktionTyp typ = TransaktionTyp.valueOf(delar[3]);
             return new Transaktion(datum, kategori, belopp, typ);
-        } catch (DateTimeParseException e) {
+        } catch (DateTimeParseException | IllegalArgumentException e) { //Fånga det ena eller det andra. NumberFormatException är en underklass till IllegalArgumentException, så den fångas av den.
             throw new FileFormatException("Felaktig rad i filen: " + rad);
         }
     }
