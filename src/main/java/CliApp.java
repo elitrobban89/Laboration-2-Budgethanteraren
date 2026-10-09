@@ -1,3 +1,5 @@
+import java.io.IOException;
+import java.nio.file.Path;
 import java.time.LocalDate;
 import java.util.Map;
 import java.util.List;
@@ -9,6 +11,8 @@ public class CliApp {
      */
     private static final Repository<Transaktion> repository = new Repository<>();
     private static final BudgetService budgetService = new BudgetService(repository);
+    private static final Path FIL = Path.of("transaktioner.csv"); //Spara till en fil med defaultnamnet
+    private static final TransaktionFilHanterare filHanterare = new TransaktionFilHanterare();
 
     static void main() {
         boolean running = true;
@@ -35,7 +39,7 @@ public class CliApp {
                     filtreraTransaktioner();
                     break;
                 case "5":
-                    //metod
+                    sparaTillFil();
                     break;
                 case "e":
                     IO.println("Avslutar programmet");
@@ -206,6 +210,19 @@ public class CliApp {
         }
         for (Transaktion transaktion : transaktioner) {
             IO.println(transaktion);
+        }
+    }
+
+    /**
+     * Menyval 5 Spara till fil
+     * Om det misslyckas skrivs ett felmeddelande ut
+     */
+    private static void sparaTillFil() {
+        try {
+            filHanterare.spara(repository.findAll(),FIL);
+            IO.println("Transaktionerna sparades till fil: " + FIL);
+        } catch (IOException e) {
+            IO.println("Det gick inte att spara till fil: " + e.getMessage());
         }
     }
 
