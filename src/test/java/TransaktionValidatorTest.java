@@ -95,4 +95,12 @@ public class TransaktionValidatorTest {
         assertThrows(InvalidTransactionException.class,
                 () -> TransaktionValidator.validate(Double.POSITIVE_INFINITY, "Mat"));
     }
+
+    @Test
+    void testValidate_kategoriMedSemikolon() {
+        //Arrange + Act + Assert: semikolon är avgränsaren i CSV-filen, så det får inte finnas i kategorin
+        InvalidTransactionException e = assertThrows(InvalidTransactionException.class,
+                () -> TransaktionValidator.validate(100, "Mat;fika"));
+        assertEquals("Kategorin får inte innehålla semikolon (;)", e.getMessage());
+    }
 }
