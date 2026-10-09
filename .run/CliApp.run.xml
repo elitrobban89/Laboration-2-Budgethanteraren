@@ -1,0 +1,10 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="CliApp" type="Application" factoryName="Application">
+    <option name="MAIN_CLASS_NAME" value="CliApp" />
+    <module name="budgethanteraren" />
+    <option name="VM_PARAMETERS" value="-Dstdin.encoding=UTF-8" />
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>

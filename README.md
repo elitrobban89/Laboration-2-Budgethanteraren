@@ -20,11 +20,19 @@ mvn test
 mvn compile
 ```
 
-Applikationen startas från `CliApp` (t.ex. via Run i IntelliJ).
+Applikationen startas från `CliApp` (t.ex. via Run i IntelliJ). Körkonfigurationen i `.run/CliApp.run.xml`
+följer med repot och sätter `-Dstdin.encoding=UTF-8`, så att å, ä och ö som skrivs i IntelliJ:s konsol
+läses in rätt (se *Bugg 5* nedan). Körs appen på annat sätt utan konsol, t.ex. med omdirigerad inmatning,
+behöver samma flagga anges: `java -Dstdin.encoding=UTF-8 ...`.
+
+Transaktionerna sparas i `transaktioner.csv` i den mapp programmet körs från. Filen skapas automatiskt
+vid första start och ligger i `.gitignore`.
 
 ## Projektstruktur
 
 ```
+.run/
+└── CliApp.run.xml                        # Delad körkonfiguration för IntelliJ (-Dstdin.encoding=UTF-8)
 src/
 ├── main/java/
 │   ├── BudgetService.java                # Beräkningar: saldo, summa per kategori, filtrering, sortering
@@ -85,6 +93,7 @@ src/
     - `lasFranFil()` anropas **en gång** i början av `main`, *före* menyloopen. Transaktionerna från filen läggs in i repot med `add`, så menyval 2–4 ser dem direkt.
     - `sparaTillFil()` (menyval 5) sparar `repository.findAll()` till filen. Samma metod anropas också vid `e`, så att inget försvinner om användaren glömmer att spara.
     - Båda fångar `IOException` och skriver ut ett meddelande, så ett filfel kraschar inte programmet. Lyckad läsning/sparning loggas som `INFO`, misslyckad som `SEVERE`.
+    - Flaggan `filenLastesIn` blir `true` först när filen har lästs in utan fel. Är den `false` vägrar `sparaTillFil()` att spara, så att en fil som inte gick att läsa aldrig skrivs över med ett tomt repo (se *Bugg 4* nedan).
 
 Exempel på menyval 4 (datum):
 ```
@@ -244,7 +253,7 @@ Totalt **34 tester**, alla gröna (`mvn test`). Varje central komponent – `Rep
 - [ ] Loggning med flera nivåer – DEBUG/INFO/WARNING/ERROR – konsekvent i hela appen (VG) – *delvis: INFO, WARNING och SEVERE klara; FINE (DEBUG) och loggkonfiguration återstår*
 
 ### Dokumentation
-- [x] Minst en dokumenterad bugg (se nedan) – tre buggar dokumenterade
+- [x] Minst en dokumenterad bugg (se nedan) – fem buggar dokumenterade
 - [ ] Reflektion kring generics och Stream API (VG)
 
 ## Felsökning – dokumenterad bugg
@@ -477,6 +486,137 @@ går igenom (`mvn test`). Testet ligger kvar som regressionstest.
 
 **Lärdom:** när en metod parsar flera fält kan varje fält kasta sitt **eget** undantag. Ett test per
 sorts trasigt fält visar om `catch` verkligen täcker alla – att ett fel fångas betyder inte att alla gör det.
+
+### Bugg 4: en fil som inte gick att läsa skrevs över med ett tomt repo
+
+**Symptom:** Om `transaktioner.csv` hade sparats med en annan teckenkodning än UTF-8 – t.ex. efter att ha
+öppnats och sparats i Excel eller Anteckningar, som ofta sparar å/ä/ö i ANSI (ISO-8859-1) – försvann **all**
+data när programmet avslutades. Filen gick från tre transaktioner till 0 byte.
+
+Programmet kraschade inte – felet fångades – men fortsatte som om allt var i ordning:
+
+```java
+private static void lasFranFil() {
+    try {
+        List<Transaktion> sparade = filHanterare.las(FIL);
+        ...
+    } catch (IOException e) {
+        IO.println("Kunde inte läsa filen: " + e.getMessage());   // programmet fortsätter med tomt repo
+    }
+}
+```
+
+#### 1. Upptäckt – kodgranskning och återskapat scenario
+Buggen hittades vid en genomgång av flödet *läs vid start → spara vid avslut*: vad händer om läsningen
+misslyckas? `CliApp` har inga JUnit-tester (menyn läser från tangentbordet), så scenariot återskapades för hand:
+
+1. En rad med `Lön` lades till i `transaktioner.csv`.
+2. Filen konverterades till ISO-8859-1, så att `ö` blev en enda byte som inte är giltig UTF-8.
+   IntelliJ varnade *"File was loaded in the wrong encoding"* – samma sak som efter Excel/Anteckningar.
+3. `CliApp` kördes, menyval 2 visade *"Inga transaktioner att visa"*, och `e` valdes.
+4. `transaktioner.csv` var nu **0 byte**.
+
+#### 2. Felsökning – loggarna
+Loggarna från körningen visade hela förloppet:
+
+```
+SEVERE: Kunde inte läsa transaktioner.csv: Input length = 1      ← vid start
+INFO: Sparade 0 transaktioner till transaktioner.csv             ← vid avslut
+```
+
+- `Input length = 1` är `MalformedInputException` från `Files.newBufferedReader`: den hittade 1 byte (`ö` i ANSI)
+  som inte är giltig UTF-8. Hela inläsningen avbröts – inte bara den raden – eftersom felet kastas av själva
+  läsaren och inte av `franCsvRad`.
+- Den andra raden är nyckeln: **`INFO`** – "allt gick bra" – precis när datan förstördes.
+
+**Orsak:** `lasFranFil()` och `sparaTillFil()` visste inget om varandra. Efter en misslyckad läsning var repot
+tomt, och `spara()` skriver alltid över hela filen med repots innehåll.
+
+#### 3. Åtgärd
+`CliApp` kommer nu ihåg om filen gick att läsa, och vägrar spara över den annars:
+
+```java
+private static boolean filenLastesIn = false;
+
+// i lasFranFil(), inne i try – efter att alla transaktioner lagts i repot:
+filenLastesIn = true;
+
+// först i sparaTillFil():
+if (!filenLastesIn) {
+    IO.println("Sparar inte: filen kunde inte läsas vid start, så den skrivs inte över.");
+    logger.severe("Sparning stoppad: " + FIL + " kunde inte läsas in vid start, men den skrivs inte över.");
+    return;
+}
+```
+
+Om `las()` kastar `IOException` hoppar Java direkt till `catch`, så raden `filenLastesIn = true;` körs aldrig.
+
+**Verifiering:** samma scenario kördes igen, med både menyval 5 och `e`:
+
+| Scenario | Resultat |
+|---|---|
+| ANSI-fil, menyval 5 och `e` | *"Sparar inte…"* + `SEVERE`. Filen är **59 byte före och efter** – ingen data förlorad. |
+| Vanlig UTF-8-fil | Läses in och sparas som vanligt. |
+| Ingen fil alls (första start) | Filen skapas, `filenLastesIn` blir `true`, sparning fungerar. |
+
+Alla 34 tester går fortfarande igenom (`mvn test`).
+
+**Lärdom:** att fånga ett undantag räcker inte – man måste också fråga sig *vad programmet gör efteråt*.
+Här gjorde `catch` att programmet överlevde, men det fortsatte med ett felaktigt tillstånd som senare förstörde datan.
+
+### Bugg 5: å, ä och ö från IntelliJ-konsolen sparades som `Ã¶`
+
+**Symptom:** När kategorin `Lön` skrevs in i IntelliJ:s körfönster sparades den i filen som `LÃ¶n`.
+Kategorier utan å/ä/ö (t.ex. `Kattmat`) fungerade, så felet syntes inte förrän en kategori med `ö` lades till.
+
+#### 1. Upptäckt – innehållet i filen
+Filen var giltig UTF-8 men innehöll fel tecken. Bytes i filen (`od -c`):
+
+```
+L 303 203 302 266 n      ← "LÃ¶n": ö har kodats två gånger (4 byte)
+L 303 266 n              ← "Lön": så ska det se ut (ö = 2 byte i UTF-8)
+```
+
+#### 2. Felsökning – systemegenskaperna
+`java -XshowSettings:properties -version` visade hur Java läser och skriver text på datorn:
+
+```
+file.encoding   = UTF-8
+native.encoding = Cp1252
+stdin.encoding  = cp850       ← i ett terminalfönster
+```
+
+`stdin.encoding` är alltså **inte** UTF-8. I IntelliJ:s körfönster (som inte är en riktig konsol) blir den
+Windows standardtabell Cp1252 – det stämmer med resultatet, eftersom just Cp1252 gör `C3` till `Ã` och `B6` till `¶`.
+
+**Orsak:**
+1. IntelliJ:s konsol skickar inmatningen som **UTF-8**, där `ö` är två byte (`C3 B6`).
+2. Java läser tangentbordet med **`stdin.encoding`**, som på Windows är en gammal teckentabell (Cp1252). Varje byte
+   tolkas då som ett eget tecken: `C3` → `Ã`, `B6` → `¶`.
+3. Strängen `LÃ¶n` sparas sedan korrekt som UTF-8 – felet hamnar permanent i filen.
+
+`IO.readln` använder Windows egen konsol när programmet körs i ett riktigt terminalfönster. IntelliJ:s körfönster
+är ingen sådan konsol, därför syntes felet där.
+
+#### 3. Åtgärd
+Felet ligger i miljön, inte i koden, så det åtgärdades med en JVM-flagga i körkonfigurationen:
+
+```
+-Dstdin.encoding=UTF-8
+```
+
+Körkonfigurationen sparades som projektfil (*Store as project file*) i `.run/CliApp.run.xml`, så att den följer med
+repot. Den som öppnar projektet i IntelliJ – t.ex. läraren – får inställningen automatiskt.
+
+**Verifiering:** samma inmatning (`Lön`) kördes med och utan flaggan:
+
+| Körning | Sparas i filen |
+|---|---|
+| utan flagga | `LÃ¶n` ❌ |
+| med `-Dstdin.encoding=UTF-8` | `Lön` ✅ |
+
+**Lärdom:** en bugg kan sitta i miljön och inte i koden. Det som fungerar på en dator kan bli fel på en annan, så
+inställningar som behövs för att köra programmet ska följa med projektet – inte bara finnas lokalt.
 
 ## Reflektion: generics och Stream API
 

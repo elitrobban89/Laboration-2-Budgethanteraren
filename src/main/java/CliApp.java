@@ -15,6 +15,7 @@ public class CliApp {
     private static final Path FIL = Path.of("transaktioner.csv"); //Spara till en fil med defaultnamnet
     private static final TransaktionFilHanterare filHanterare = new TransaktionFilHanterare();
     private static final Logger logger = Logger.getLogger(CliApp.class.getName());
+    private static boolean filenLastesIn = false; //Blir true om filen har kunnat läsas in
 
     static void main() {
         boolean running = true;
@@ -225,6 +226,11 @@ public class CliApp {
      * Om det misslyckas skrivs ett felmeddelande ut
      */
     private static void sparaTillFil() {
+        if (!filenLastesIn) {
+            IO.println("Sparar inte: filen kunde inte läsas vid start, så den skrivs inte över. ");
+            logger.severe("Sparning stoppad: " + FIL + " kunde inte läsas in vid start, men den skrivs inte över.");
+            return;
+        }
         try {
             filHanterare.spara(repository.findAll(),FIL);
             IO.println("Transaktionerna sparades till fil: " + FIL);
@@ -244,6 +250,7 @@ public class CliApp {
             for (Transaktion t : sparade) {
                 repository.add(t);
             }
+            filenLastesIn = true;
             IO.println(sparade.size() + " transaktioner lästes in från " + FIL);
             logger.info("Läste in " + sparade.size() + " transaktioner från " + FIL);
         } catch (IOException e) {
