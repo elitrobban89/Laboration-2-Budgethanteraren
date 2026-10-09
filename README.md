@@ -87,7 +87,9 @@ src/
 - **`CliApp`** – menyn. Väljer typ och anropar sedan `parseBelopp` och `validate` i ett gemensamt `try/catch`. Vid fel skrivs validatorns meddelande ut med `e.getMessage()` och programmet fortsätter utan att krascha. Kategorin trimmas först efter valideringen, när den säkert inte är `null`. Menyval 3 hämtar saldot och summan per kategori från `BudgetService` och skriver ut dem; finns inga transaktioner visas ett meddelande i stället för en tom lista.
   - Menyval 4 visar en undermeny (`1. Datum`, `2. Typ`, `3. Alla, sorterade på datum`). Varje filter har en egen liten metod i `CliApp` (`visaFiltreratPaTyp`, `visaFiltreratPaDatum`) som frågar användaren och sedan anropar motsvarande metod i `BudgetService`. Namnen skiljer sig från `BudgetService`-metoderna med flit: `CliApp` *frågar och visar*, `BudgetService` *räknar*.
   - Hjälpmetoden `skrivUt(List<Transaktion>)` skriver ut resultatet för alla filter, och visar "Inga transaktioner matchade filtret" om listan är tom. Null-kontrollen står först (`transaktioner == null || transaktioner.isEmpty()`) så att `isEmpty()` aldrig anropas på `null`.
-  - Typvalet jämförs med `"1".equals(typVal)` i stället för `typVal.equals("1")`, så att `null` (t.ex. Ctrl+D) ger `false` i stället för en `NullPointerException`.
+  - Typvalet i filtret jämförs med `"1".equals(typVal)` i stället för `typVal.equals("1")`, så att `null` (t.ex. Ctrl+D) ger `false` i stället för en `NullPointerException`.
+  - Alla menyval (huvudmeny, typval och filtermeny) trimmas efter null-kontrollen, så att t.ex. `" 1 "` räknas som `1`.
+  - Om inmatningen avbryts i huvudmenyn (Ctrl+D, `readln` ger `null`) sparas transaktionerna till filen innan programmet avslutas – precis som vid `e` – så att inget försvinner.
   - Datumfiltret läser in start- och slutdatum, parsar båda med `parseDatum` i ett gemensamt `try/catch`, och kontrollerar att startdatum inte är efter slutdatum innan `filtreraDatum` anropas. Allt som använder de parsade datumen ligger inne i `try`, eftersom variablerna bara finns i det blocket.
   - **Fil:** sökvägen bestäms på ett ställe, konstanten `FIL = Path.of("transaktioner.csv")`.
     - `lasFranFil()` anropas **en gång** i början av `main`, *före* menyloopen. Transaktionerna från filen läggs in i repot med `add`, så menyval 2–4 ser dem direkt.
@@ -206,9 +208,9 @@ INFO: Sparade 1 transaktioner till transaktioner.csv
   - [x] Sortering: `BudgetService.sorteraPaDatum()` med `Comparator`, val 3 i undermenyn
 - [x] 5. Spara till fil (CSV, try-with-resources)
 - [x] Läsa in transaktioner från fil vid start, hantera saknad/trasig fil utan krasch
-- [x] e. Avsluta (sparar till fil först)
+- [x] e. Avsluta (sparar till fil först – även om inmatningen avbryts med Ctrl+D)
 
-### Tester (JUnit 5, Arrange-Act-Assert)
+### Tester (JUnit 6, Arrange-Act-Assert)
 - [x] `RepositoryTest` – 9 tester:
   - [x] lägga till objekt, ordning bevaras, dubbletter tillåts
   - [x] `findAll` på tomt repo, `findAll` returnerar en kopia
