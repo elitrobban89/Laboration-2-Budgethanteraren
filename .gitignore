@@ -2,3 +2,4 @@
 target/
 *.iml
 transaktioner.csv
+budget.log
