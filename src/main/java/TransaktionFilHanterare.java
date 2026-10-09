@@ -1,5 +1,10 @@
+import java.io.BufferedWriter;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
+import java.util.List;
 
 /**
  * Har skapat TransaktionFilHanterare för att hantera transaktioner från filer.
@@ -35,6 +40,21 @@ public class TransaktionFilHanterare {
             return new Transaktion(datum, kategori, belopp, typ);
         } catch (DateTimeParseException | IllegalArgumentException e) { //Fånga det ena eller det andra. NumberFormatException är en underklass till IllegalArgumentException, så den fångas av den.
             throw new FileFormatException("Felaktig rad i filen: " + rad);
+        }
+    }
+
+    /**
+     * Metod för att spara en lista med transaktioner till en fil i CSV-format.
+     * @param transaktioner Lista med transaktioner att spara.
+     * @param fil Filen där transaktionerna ska sparas.
+     * @throws IOException Om det uppstår ett fel vid skrivning till filen.
+     */
+    public void spara(List<Transaktion> transaktioner, Path fil) throws IOException { //Path fil säger var filen är någonstans
+        try (BufferedWriter writer = Files.newBufferedWriter(fil)) { //Try för att writer ska stängas automatiskt när vi är färdiga med att använda den
+            for (Transaktion t : transaktioner) { //Går igenom varje transaktion i listan
+                writer.write(tillCsvRad(t));
+                writer.newLine();
+            }
         }
     }
 }
