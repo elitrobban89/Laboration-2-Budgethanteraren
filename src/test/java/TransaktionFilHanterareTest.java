@@ -17,5 +17,4 @@ class TransaktionFilHanterareTest {
         //Assert:
         assertEquals(expected, actual);
     }
-
 }
