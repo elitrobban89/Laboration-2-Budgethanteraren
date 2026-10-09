@@ -5,6 +5,8 @@ import java.nio.file.Path;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.List;
+import java.io.BufferedReader;
+import java.util.ArrayList;
 
 /**
  * Har skapat TransaktionFilHanterare för att hantera transaktioner från filer.
@@ -38,15 +40,17 @@ public class TransaktionFilHanterare {
             double belopp = Double.parseDouble(delar[2]);
             TransaktionTyp typ = TransaktionTyp.valueOf(delar[3]);
             return new Transaktion(datum, kategori, belopp, typ);
-        } catch (DateTimeParseException | IllegalArgumentException e) { //Fånga det ena eller det andra. NumberFormatException är en underklass till IllegalArgumentException, så den fångas av den.
+        } catch (DateTimeParseException |
+                 IllegalArgumentException e) { //Fånga det ena eller det andra. NumberFormatException är en underklass till IllegalArgumentException, så den fångas av den.
             throw new FileFormatException("Felaktig rad i filen: " + rad);
         }
     }
 
     /**
      * Metod för att spara en lista med transaktioner till en fil i CSV-format.
+     *
      * @param transaktioner Lista med transaktioner att spara.
-     * @param fil Filen där transaktionerna ska sparas.
+     * @param fil           Filen där transaktionerna ska sparas.
      * @throws IOException Om det uppstår ett fel vid skrivning till filen.
      */
     public void spara(List<Transaktion> transaktioner, Path fil) throws IOException { //Path fil säger var filen är någonstans
@@ -56,5 +60,26 @@ public class TransaktionFilHanterare {
                 writer.newLine();
             }
         }
+    }
+
+    public List<Transaktion> las(Path fil) throws IOException {
+        List<Transaktion> transaktioner = new ArrayList<>();
+        if (!Files.exists(fil)) { //Om inte filen finns så ska den skapas sen hoppa ur snurran utan att krascha programmet
+            Files.createFile(fil);
+            return transaktioner;
+        }
+        try (BufferedReader reader = Files.newBufferedReader(fil)) {
+            String rad;
+            while ((rad = reader.readLine()) != null) {
+                if(!rad.isBlank()) {
+                    try{
+                        transaktioner.add(franCsvRad(rad));
+                    } catch (FileFormatException e) {
+                        IO.println("Fel vid läsning av filen: " + e.getMessage());
+                    }
+                }
+            }
+        }
+        return transaktioner;
     }
 }
