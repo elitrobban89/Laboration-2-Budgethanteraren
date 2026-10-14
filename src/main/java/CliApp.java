@@ -6,7 +6,10 @@ import java.util.List;
 import java.util.logging.Logger;
 import java.io.InputStream;
 import java.util.logging.LogManager;
+import java.util.Optional;
+import org.jspecify.annotations.NullMarked;
 
+@NullMarked
 public class CliApp {
 
     /**
@@ -71,19 +74,13 @@ public class CliApp {
         IO.println("--- 1. Lägg till transaktion ---");
         String typVal = IO.readln("Välj 1 för INKOMST, 2 för UTGIFT: ");
 
-        if (typVal == null) {
-            return;
-        }
-        typVal = typVal.trim(); //Tar bort mellanslag så att tex" 1" räknas som 1 i Val av typ
-        TransaktionTyp typ;
-        if (typVal.equals("1")) {
-            typ = TransaktionTyp.INKOMST;
-        } else if (typVal.equals("2")) {
-            typ = TransaktionTyp.UTGIFT;
-        } else {
+        //tolkaTyp ger en Optional: tom om valet är ogiltigt (eller null vid Ctrl+D)
+        Optional<TransaktionTyp> valdTyp = TransaktionValidator.tolkaTyp(typVal);
+        if (valdTyp.isEmpty()) {
             IO.println("Ogiltigt val. Mata in 1 för INKOMST eller 2 för UTGIFT: ");
             return;
         }
+        TransaktionTyp typ = valdTyp.get();
         IO.println("Du valde: " + typ);
 
         String beloppStr = IO.readln("Ange belopp: ");
@@ -185,19 +182,10 @@ public class CliApp {
      */
     private static void visaFiltreratPaTyp() {
         String typVal = IO.readln("Välj 1 för INKOMST, 2 för UTGIFT: ");
-        if (typVal != null) {
-            typVal = typVal.trim(); //Tar bort mellanslag så att t.ex. " 1" räknas som 1 i typfiltret
-        }
-        TransaktionTyp typ;
-        if ("1".equals(typVal)) {
-            typ = TransaktionTyp.INKOMST;
-        } else if ("2".equals(typVal)) {
-            typ = TransaktionTyp.UTGIFT;
-        } else {
-            IO.println("Ogiltigt val");
-            return;
-        }
-        skrivUt(budgetService.filtreraTyp(typ));
+        //Om typen finns filtrerar vi på den, annars skrivs "Ogiltigt val" ut
+        TransaktionValidator.tolkaTyp(typVal).ifPresentOrElse(
+                typ -> skrivUt(budgetService.filtreraTyp(typ)),
+                () -> IO.println("Ogiltigt val"));
     }
 
     /**
@@ -222,7 +210,7 @@ public class CliApp {
     }
 
     private static void skrivUt(List<Transaktion> transaktioner) {
-        if (transaktioner == null || transaktioner.isEmpty()) {
+        if (transaktioner.isEmpty()) { //Ingen null-koll behövs, @NullMarked lovar att listan inte är null
             IO.println("Inga transaktioner matchade filtret");
             return;
         }

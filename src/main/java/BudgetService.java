@@ -4,11 +4,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.logging.Logger;
+import org.jspecify.annotations.NullMarked;
 
 /**
  * Räknar på transaktionerna i ett Repository: saldo och summa per kategori m.m.
  * Kan testas med JUnit.
  */
+@NullMarked
 public class BudgetService {
     private final Repository<Transaktion> repository;
     private static final Logger logger = Logger.getLogger(BudgetService.class.getName()); //Skapa Logger fält

@@ -8,12 +8,14 @@ import java.util.List;
 import java.io.BufferedReader;
 import java.util.ArrayList;
 import java.util.logging.Logger;
+import org.jspecify.annotations.NullMarked;
 
 /**
  * Har skapat TransaktionFilHanterare för att hantera transaktioner från filer.
  * Den läser in transaktioner och sparar dem till en CSV fil.
  * Iom att vår record ser ut så bör vi ha filformatet: (datum; kategori; belopp; typ) så att det blir samma ordning i utdatafilen.
  */
+@NullMarked
 public class TransaktionFilHanterare {
     private static final Logger logger = Logger.getLogger(TransaktionFilHanterare.class.getName()); //Skapa loggerobjekt
 

@@ -1,4 +1,5 @@
 import org.junit.jupiter.api.Test;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -102,5 +103,20 @@ public class TransaktionValidatorTest {
         InvalidTransactionException e = assertThrows(InvalidTransactionException.class,
                 () -> TransaktionValidator.validate(100, "Mat;fika"));
         assertEquals("Kategorin får inte innehålla semikolon (;)", e.getMessage());
+    }
+
+    @Test
+    void testTolkaTyp_giltigaVal() {
+        //Act + Assert - " 1" trimmas och blir INKOMST, "2" blir UTGIFT
+        assertEquals(Optional.of(TransaktionTyp.INKOMST), TransaktionValidator.tolkaTyp(" 1"));
+        assertEquals(Optional.of(TransaktionTyp.UTGIFT), TransaktionValidator.tolkaTyp("2"));
+    }
+
+    @Test
+    void testTolkaTyp_ogiltigtVal_ger_tomOptional() {
+        //Act + Assert - ogiltigt val och null (Ctrl+D) ger Optional.empty(), aldrig null
+        assertTrue(TransaktionValidator.tolkaTyp("3").isEmpty());
+        assertTrue(TransaktionValidator.tolkaTyp("").isEmpty());
+        assertTrue(TransaktionValidator.tolkaTyp(null).isEmpty());
     }
 }

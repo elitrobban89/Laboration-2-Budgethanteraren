@@ -1,6 +1,7 @@
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Predicate; //Behövs för filtrering på typ eller datum
+import org.jspecify.annotations.NullMarked;
 
 
 /**
@@ -11,6 +12,7 @@ import java.util.function.Predicate; //Behövs för filtrering på typ eller dat
  * @param <T> typparameter (Generics).
  * Fungerar som en platshållare för vilken datatyp som helst.
  */
+@NullMarked
 public class Repository<T> {
     private final List<T> items = new ArrayList<>();
 

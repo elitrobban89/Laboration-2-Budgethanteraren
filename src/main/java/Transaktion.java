@@ -1,4 +1,5 @@
 import java.time.LocalDate;
+import org.jspecify.annotations.NullMarked;
 
 /**
  * Transaktion är en record så den får equals och hashCode() automatiskt.
@@ -9,5 +10,6 @@ import java.time.LocalDate;
  * @param typ      INKOMST eller UTGIFT
  */
 
+@NullMarked
 public record Transaktion(LocalDate datum, String kategori, double belopp, TransaktionTyp typ) {
 }

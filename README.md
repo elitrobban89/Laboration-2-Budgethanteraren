@@ -9,6 +9,7 @@ Uppgiften examinerar främst **läranderesultat 7**: enhetstester med JUnit 5, f
 - Java 27
 - Maven
 - JUnit 6 (Jupiter, 6.1.3) – samma API som JUnit 5, så testerna skrivs på samma sätt
+- JSpecify 1.0.0 – annoteringarna `@NullMarked` och `@Nullable` för null-säkerhet (se *Null-säkerhet* nedan)
 
 ## Köra projektet
 
@@ -45,7 +46,7 @@ src/
 │   ├── Transaktion.java                  # record: datum, kategori, belopp, typ
 │   ├── TransaktionFilHanterare.java      # Översätter transaktion ↔ CSV-rad (läser/sparar fil)
 │   ├── TransaktionTyp.java               # enum: INKOMST, UTGIFT
-│   └── TransaktionValidator.java         # Parsar och validerar belopp och kategori
+│   └── TransaktionValidator.java         # Parsar och validerar belopp och kategori, tolkar typval (Optional)
 └── test/java/
     ├── BudgetServiceTest.java            # Tester för beräkningarna i BudgetService
     ├── RepositoryTest.java               # Tester för Repository<T>
@@ -216,6 +217,52 @@ Exempel från en körning – en trasig rad i filen, belopp `abc`, filter på ty
 Loggen berättar hela förloppet: vilka rader som lästes, vilken som hoppades över och varför, vad filtren gav och
 exakt vad som skrevs tillbaka. `SEVERE` syns inte här eftersom inget allvarligt hände – se *Bugg 4* för ett exempel.
 
+## Null-säkerhet: Optional och JSpecify
+
+I Laboration 1 var `null` en ständig risk: tomma platser i arrayen och metoder som returnerade `null` när inget
+hittades. Glömde man en `null`-koll blev det `NullPointerException`. I Laboration 2 används två verktyg som gör det
+tydligt **var** något kan saknas.
+
+### Optional – "kanske ett värde"
+
+Användaren väljer typ genom att skriva `1` (INKOMST) eller `2` (UTGIFT). Tidigare fanns samma if/else-kod
+på två ställen i `CliApp`. Nu gör `TransaktionValidator.tolkaTyp` om valet till en typ, och resultatet är en
+`Optional<TransaktionTyp>`:
+
+```java
+public static Optional<TransaktionTyp> tolkaTyp(@Nullable String val) {
+    if (val == null) {
+        return Optional.empty();
+    }
+    return switch (val.trim()) {
+        case "1" -> Optional.of(TransaktionTyp.INKOMST);
+        case "2" -> Optional.of(TransaktionTyp.UTGIFT);
+        default -> Optional.empty();
+    };
+}
+```
+
+Ett ogiltigt val (eller Ctrl+D, som ger `null`) blir `Optional.empty()` – metoden returnerar **aldrig** `null`.
+Returtypen visar direkt att det kan saknas ett värde, så den som anropar tvingas ta ställning till det.
+I filtret används `ifPresentOrElse`:
+
+```java
+TransaktionValidator.tolkaTyp(typVal).ifPresentOrElse(
+        typ -> skrivUt(budgetService.filtreraTyp(typ)),
+        () -> IO.println("Ogiltigt val"));
+```
+
+### JSpecify – `@NullMarked` och `@Nullable`
+
+- **`@NullMarked`** på en klass betyder: *inget här får vara `null`, om det inte står `@Nullable`*.
+  Den sitter på `CliApp`, `BudgetService`, `Repository`, `Transaktion`, `TransaktionFilHanterare` och `TransaktionValidator`.
+  (Klasserna ligger i default-paketet, därför sätts den på varje klass i stället för i en `package-info.java`.)
+- **`@Nullable`** märker ut de få ställen där `null` faktiskt kan komma in: parametrarna till `parseBelopp`,
+  `parseDatum`, `validate` (kategori) och `tolkaTyp`. Värdena kommer från `IO.readln`, som ger `null` vid Ctrl+D.
+- Annoteringarna ändrar inget när programmet körs, men IntelliJ läser dem och varnar om man t.ex. skickar
+  `null` där det inte är tillåtet. Därför kunde `== null`-kollen i `CliApp.skrivUt` tas bort – listorna från
+  `BudgetService` är `@NullMarked` och alltså aldrig `null`.
+
 ## Status
 
 ### Domänmodell
@@ -226,6 +273,8 @@ exakt vad som skrevs tillbaka. `SEVERE` syns inte här eftersom inget allvarligt
 - [x] `TransaktionValidator` som kastar `InvalidTransactionException`
 - [x] `TransaktionValidator.parseBelopp` – felaktigt format ger `InvalidTransactionException`
 - [x] `TransaktionValidator.parseDatum` – felaktigt datum ger `InvalidTransactionException`
+- [x] `TransaktionValidator.tolkaTyp` – menyval blir `Optional<TransaktionTyp>`, ogiltigt val ger `Optional.empty()`
+- [x] JSpecify: `@NullMarked` på klasserna, `@Nullable` där inmatningen kan vara `null`
 - [x] `CliApp` använder `TransaktionValidator` med `try/catch`
 - [x] `FileFormatException` (checked) för trasiga rader i filen
 - [x] `TransaktionFilHanterare.tillCsvRad` / `franCsvRad` – transaktion ↔ CSV-rad
@@ -256,7 +305,7 @@ exakt vad som skrevs tillbaka. `SEVERE` syns inte här eftersom inget allvarligt
   - [x] gränsfall: `findWhere` på tomt repo
   - [x] `assertThrows` – resultatet från `findWhere` går inte att ändra
   - [x] generics + gränsvärden – `Repository<Integer>` med värden runt 100
-- [x] `TransaktionValidatorTest` – 12 tester:
+- [x] `TransaktionValidatorTest` – 14 tester:
   - [x] `parseBelopp` normalfall – `" 100 "` blir `100` (parsning + trim)
   - [x] `parseBelopp` med `null` – ger `InvalidTransactionException`, inte `NullPointerException`
   - [x] `parseBelopp` med bokstäver – `assertThrows` + kontroll av felmeddelandet
@@ -264,6 +313,7 @@ exakt vad som skrevs tillbaka. `SEVERE` syns inte här eftersom inget allvarligt
   - [x] `validate` kategori – tom (kontroll av felmeddelandet), bara mellanslag, `null`
   - [x] `NaN`/`Infinity` som belopp – avslöjade en bugg som nu är åtgärdad (se *Felsökning* nedan)
   - [x] `validate` kategori med semikolon (`Mat;fika`) – `assertThrows` + kontroll av felmeddelandet; avslöjade bugg 6
+  - [x] `tolkaTyp` – `" 1"` och `"2"` ger rätt typ i en `Optional`; `"3"`, `""` och `null` ger `Optional.empty()`, aldrig `null`
 - [x] `BudgetServiceTest` – 7 tester. Varje test bygger sitt eget repo i Arrange och skickar in det i `BudgetService`:
   - [x] `saldo()` gränsfall – inga transaktioner ger `0.0`
   - [x] `saldo()` inkomster minus utgifter – Lön 25000, Mat 842.50, Hyra 7200 ger `16957.50` (förväntat värde uträknat för hand)
@@ -284,7 +334,7 @@ exakt vad som skrevs tillbaka. `SEVERE` syns inte här eftersom inget allvarligt
 
   Filtesterna använder JUnits **`@TempDir`**: varje test får en ny tillfällig mapp som raderas efteråt, så testerna rör aldrig den riktiga `transaktioner.csv` och lämnar inga filer efter sig. Innehållet i den trasiga filen skrivs direkt i testet med `Files.writeString` och ett textblock (`"""`).
 
-Totalt **35 tester**, alla gröna (`mvn test`). Varje central komponent – `Repository<T>`, `TransaktionValidator`, `BudgetService` och `TransaktionFilHanterare` – har en egen testklass med normalfall, gränsfall och (där det är rimligt) `assertThrows` för egna undantag.
+Totalt **37 tester**, alla gröna (`mvn test`). Varje central komponent – `Repository<T>`, `TransaktionValidator`, `BudgetService` och `TransaktionFilHanterare` – har en egen testklass med normalfall, gränsfall och (där det är rimligt) `assertThrows` för egna undantag.
 
 ### Loggning
 - [x] Loggning vid felaktig indata och filfel (G)
