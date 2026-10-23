@@ -2,6 +2,10 @@
 
 En interaktiv konsolapplikation i Java där användaren kan registrera inkomster och utgifter, kategorisera dem, spara/läsa dem från fil och få en sammanställning av sin ekonomi.
 
+> **Prova i webbläsaren:** [elitrobban.se/bibliotekshanteraren-och-budgethanteraren](https://elitrobban.se/bibliotekshanteraren-och-budgethanteraren/)
+> Koden i det här repot byggs och körs oförändrad på servern, och testerna körs i bygget. Terminalen på sidan skickar det du skriver till programmet.
+> Webbtjänsten finns i [Java-labbar](https://github.com/elitrobban89/Java-labbar).
+
 Uppgiften examinerar främst **läranderesultat 7**: enhetstester med JUnit 5, felsökning med debugger och loggning samt att åtgärda defekter utifrån testresultat.
 
 ## Teknik
